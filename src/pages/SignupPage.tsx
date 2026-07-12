@@ -3,11 +3,13 @@ import { useNavigate } from 'react-router-dom'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 
-export const LoginPage: React.FC = () => {
+export const SignupPage: React.FC = () => {
   const navigate = useNavigate()
   const [formData, setFormData] = useState({
+    name: '',
     email: '',
     password: '',
+    confirmPassword: '',
   })
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState('')
@@ -22,35 +24,42 @@ export const LoginPage: React.FC = () => {
     setError('')
     setIsLoading(true)
 
-    // バリデーション
-    if (!formData.email || !formData.password) {
-      setError('メールアドレスとパスワードを入力してください')
-      setIsLoading(false)
-      return
-    }
-
-    if (!formData.email.includes('@')) {
-      setError('有効なメールアドレスを入力してください')
-      setIsLoading(false)
-      return
-    }
-
-    // ダミー認証（実際の実装ではAPIコールになります）
     try {
-      // 模擬ログイン遅延
+      if (!formData.name || !formData.email || !formData.password || !formData.confirmPassword) {
+        setError('すべてのフィールドを入力してください')
+        setIsLoading(false)
+        return
+      }
+
+      if (!formData.email.includes('@')) {
+        setError('有効なメールアドレスを入力してください')
+        setIsLoading(false)
+        return
+      }
+
+      if (formData.password.length < 6) {
+        setError('パスワードは6文字以上である必要があります')
+        setIsLoading(false)
+        return
+      }
+
+      if (formData.password !== formData.confirmPassword) {
+        setError('パスワードが一致しません')
+        setIsLoading(false)
+        return
+      }
+
       await new Promise((resolve) => setTimeout(resolve, 1000))
 
-      // ダミー認証成功
-      if (formData.email && formData.password) {
-        localStorage.setItem('authToken', 'dummy-token-' + Date.now())
-        localStorage.setItem('user', JSON.stringify({
-          email: formData.email,
-          name: formData.email.split('@')[0],
-        }))
-        navigate('/')
-      }
+      localStorage.setItem('authToken', 'dummy-token-' + Date.now())
+      localStorage.setItem('user', JSON.stringify({
+        name: formData.name,
+        email: formData.email,
+      }))
+
+      navigate('/')
     } catch (err) {
-      setError('ログインに失敗しました。もう一度お試しください。')
+      setError('登録に失敗しました。もう一度お試しください。')
     } finally {
       setIsLoading(false)
     }
@@ -66,12 +75,12 @@ export const LoginPage: React.FC = () => {
           <p className="text-gray-600 mt-2">CLAUDE研修 Inc.</p>
         </div>
 
-        {/* ログインフォーム */}
+        {/* サインアップフォーム */}
         <Card>
           <CardHeader>
-            <CardTitle>ログイン</CardTitle>
+            <CardTitle>アカウント登録</CardTitle>
             <CardDescription>
-              メールアドレスとパスワードでログインしてください
+              新しいアカウントを作成してください
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -82,6 +91,21 @@ export const LoginPage: React.FC = () => {
                   {error}
                 </div>
               )}
+
+              {/* 名前 */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  名前
+                </label>
+                <input
+                  type="text"
+                  name="name"
+                  value={formData.name}
+                  onChange={handleChange}
+                  placeholder="山田太郎"
+                  className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
+                />
+              </div>
 
               {/* メールアドレス */}
               <div>
@@ -113,49 +137,47 @@ export const LoginPage: React.FC = () => {
                 />
               </div>
 
-              {/* パスワード忘却リンク */}
-              <div className="text-right">
-                <button
-                  type="button"
-                  className="text-sm text-primary hover:underline"
-                >
-                  パスワードを忘れた方
-                </button>
+              {/* パスワード確認 */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  パスワード確認
+                </label>
+                <input
+                  type="password"
+                  name="confirmPassword"
+                  value={formData.confirmPassword}
+                  onChange={handleChange}
+                  placeholder="••••••••"
+                  className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
+                />
               </div>
 
-              {/* ログインボタン */}
+              {/* 登録ボタン */}
               <Button
                 type="submit"
                 disabled={isLoading}
                 className="w-full"
               >
-                {isLoading ? 'ログイン中...' : 'ログイン'}
+                {isLoading ? '登録中...' : 'アカウント登録'}
               </Button>
 
-              {/* サインアップリンク */}
+              {/* ログインリンク */}
               <div className="text-center text-sm text-gray-600">
-                アカウントをお持ちでない方は
+                既にアカウントをお持ちの方は
                 <button
                   type="button"
-                  onClick={() => navigate('/signup')}
+                  onClick={() => navigate('/login')}
                   className="text-primary hover:underline ml-1"
                 >
-                  こちらから登録
+                  ログイン
                 </button>
               </div>
             </form>
           </CardContent>
         </Card>
-
-        {/* 利用可能なテスト認証情報 */}
-        <div className="mt-6 p-4 bg-blue-50 border border-blue-200 rounded-lg text-sm text-gray-700">
-          <p className="font-medium mb-2">テスト用認証情報:</p>
-          <p>メール: test@example.com</p>
-          <p>パスワード: password123</p>
-        </div>
       </div>
     </div>
   )
 }
 
-LoginPage.displayName = 'LoginPage'
+SignupPage.displayName = 'SignupPage'

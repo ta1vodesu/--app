@@ -1,4 +1,5 @@
 import React from 'react'
+import { useNavigate } from 'react-router-dom'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import {
   DropdownMenu,
@@ -10,6 +11,14 @@ import {
 import { mockCurrentUser } from '@/data/mockData'
 
 export const Header: React.FC = () => {
+  const navigate = useNavigate()
+
+  const handleLogout = () => {
+    localStorage.removeItem('authToken')
+    localStorage.removeItem('user')
+    navigate('/login')
+  }
+
   return (
     <header className="bg-primary text-primary-foreground border-b border-border sticky top-0 z-40">
       <div className="h-14 sm:h-16 px-3 sm:px-6 flex items-center justify-between gap-2 sm:gap-4">
@@ -47,8 +56,18 @@ export const Header: React.FC = () => {
                 </div>
               </DropdownMenuItem>
               <DropdownMenuSeparator />
-              <DropdownMenuItem className="text-xs sm:text-sm">プロフィール設定</DropdownMenuItem>
-              <DropdownMenuItem className="text-xs sm:text-sm">ログアウト</DropdownMenuItem>
+              <DropdownMenuItem
+                className="text-xs sm:text-sm cursor-pointer"
+                onClick={() => navigate('/account-settings')}
+              >
+                プロフィール設定
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                className="text-xs sm:text-sm cursor-pointer text-red-600"
+                onClick={handleLogout}
+              >
+                ログアウト
+              </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
         </div>

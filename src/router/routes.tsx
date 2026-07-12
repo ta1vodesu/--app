@@ -10,6 +10,7 @@ import { LeaveManagementPage } from '@/pages/LeaveManagementPage'
 import { AccountSettingsPage } from '@/pages/AccountSettingsPage'
 import { ProfilePage } from '@/pages/ProfilePage'
 import { LoginPage } from '@/pages/LoginPage'
+import { SignupPage } from '@/pages/SignupPage'
 import { NotFoundPage } from '@/pages/NotFoundPage'
 
 export const router = createBrowserRouter(
@@ -17,6 +18,10 @@ export const router = createBrowserRouter(
     {
       path: '/login',
       element: <LoginPage />,
+    },
+    {
+      path: '/signup',
+      element: <SignupPage />,
     },
     {
       path: '/',
@@ -52,7 +57,7 @@ export const router = createBrowserRouter(
           element: <ProfilePage />,
         },
         {
-          path: 'account',
+          path: 'account-settings',
           element: <AccountSettingsPage />,
         },
       ],
