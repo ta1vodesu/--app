@@ -2,9 +2,11 @@ import React, { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
+import { useAuth } from '@/context/AuthContext'
 
 export const SignupPage: React.FC = () => {
   const navigate = useNavigate()
+  const { signup } = useAuth()
   const [formData, setFormData] = useState({
     name: '',
     email: '',
@@ -49,17 +51,11 @@ export const SignupPage: React.FC = () => {
         return
       }
 
-      await new Promise((resolve) => setTimeout(resolve, 1000))
-
-      localStorage.setItem('authToken', 'dummy-token-' + Date.now())
-      localStorage.setItem('user', JSON.stringify({
-        name: formData.name,
-        email: formData.email,
-      }))
-
+      await signup(formData.email, formData.password)
       navigate('/')
     } catch (err) {
-      setError('登録に失敗しました。もう一度お試しください。')
+      const errorMessage = err instanceof Error ? err.message : '登録に失敗しました'
+      setError(errorMessage)
     } finally {
       setIsLoading(false)
     }

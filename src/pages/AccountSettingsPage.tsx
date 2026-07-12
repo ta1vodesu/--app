@@ -2,9 +2,11 @@ import React, { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
+import { useAuth } from '@/context/AuthContext'
 
 export const AccountSettingsPage: React.FC = () => {
   const navigate = useNavigate()
+  const { logout } = useAuth()
   const [formData, setFormData] = useState({
     name: localStorage.getItem('user')
       ? JSON.parse(localStorage.getItem('user') || '{}').name || ''
@@ -98,10 +100,13 @@ export const AccountSettingsPage: React.FC = () => {
     }
   }
 
-  const handleLogout = () => {
-    localStorage.removeItem('authToken')
-    localStorage.removeItem('user')
-    navigate('/login')
+  const handleLogout = async () => {
+    try {
+      await logout()
+      navigate('/login')
+    } catch (err) {
+      setError('ログアウトに失敗しました')
+    }
   }
 
   return (

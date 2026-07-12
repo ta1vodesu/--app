@@ -2,9 +2,11 @@ import React, { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
+import { useAuth } from '@/context/AuthContext'
 
 export const LoginPage: React.FC = () => {
   const navigate = useNavigate()
+  const { login } = useAuth()
   const [formData, setFormData] = useState({
     email: '',
     password: '',
@@ -35,22 +37,12 @@ export const LoginPage: React.FC = () => {
       return
     }
 
-    // ダミー認証（実際の実装ではAPIコールになります）
     try {
-      // 模擬ログイン遅延
-      await new Promise((resolve) => setTimeout(resolve, 1000))
-
-      // ダミー認証成功
-      if (formData.email && formData.password) {
-        localStorage.setItem('authToken', 'dummy-token-' + Date.now())
-        localStorage.setItem('user', JSON.stringify({
-          email: formData.email,
-          name: formData.email.split('@')[0],
-        }))
-        navigate('/')
-      }
+      await login(formData.email, formData.password)
+      navigate('/')
     } catch (err) {
-      setError('ログインに失敗しました。もう一度お試しください。')
+      const errorMessage = err instanceof Error ? err.message : 'ログインに失敗しました'
+      setError(errorMessage)
     } finally {
       setIsLoading(false)
     }
