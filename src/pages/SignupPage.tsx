@@ -58,9 +58,9 @@ export const SignupPage: React.FC = () => {
       }
 
       await signup(formData.email, formData.password, formData.name)
-      navigate('/login', {
-        state: { message: 'アカウントが登録されました。ログインしてください。' },
-      })
+      
+      // signup 後は自動的にログインされるので、ダッシュボードへリダイレクト
+      navigate('/', { replace: true })
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : '登録に失敗しました'
       console.error('Signup error:', err)

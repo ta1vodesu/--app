@@ -94,6 +94,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (error) throw new Error(error.message)
 
     if (data.user?.id) {
+      setUser(data.user)
       await fetchUserProfile(data.user.id)
     }
   }
@@ -160,7 +161,24 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         throw new Error(`プロフィール作成エラー: ${profileError.message}`)
       }
 
-      console.log('✅ ユーザー作成成功:', { id: authData.user.id, name, email, departmentId })
+      // 4. 登録したユーザーで自動ログイン
+      const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      })
+
+      if (signInError) {
+        console.error('Auto sign-in error:', signInError)
+        // サインインに失敗してもプロフィール作成は成功しているので、エラーは投げない
+        return
+      }
+
+      if (signInData.user?.id) {
+        setUser(signInData.user)
+        await fetchUserProfile(signInData.user.id)
+      }
+
+      console.log('✅ ユーザー作成・ログイン成功:', { id: authData.user.id, name, email, departmentId })
     } catch (error) {
       console.error('Signup error:', error)
       throw error
