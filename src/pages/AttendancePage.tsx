@@ -13,6 +13,7 @@ import { StatusBadge } from '@/components/common/StatusBadge'
 import { EmptyState } from '@/components/common/EmptyState'
 import { Spinner } from '@/components/common/Spinner'
 import { MonthNavigator } from '@/components/common/MonthNavigator'
+import { AttendanceCalendar } from '@/components/common/AttendanceCalendar'
 import { AttendanceStatus } from '@/types'
 import { mockAttendances } from '@/data/mockData'
 
@@ -59,6 +60,23 @@ export const AttendancePage: React.FC = () => {
 
       {/* 月ナビゲーター */}
       <MonthNavigator selectedDate={selectedDate} onMonthChange={setSelectedDate} />
+
+      {/* カレンダー */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base sm:text-lg">勤怠カレンダー</CardTitle>
+          <CardDescription>
+            黄色：出勤 / 青色：休日 / 緑色：その他の事項
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <AttendanceCalendar
+            attendances={mockAttendances}
+            selectedDate={selectedDate}
+            onDateSelect={setSelectedDate}
+          />
+        </CardContent>
+      </Card>
 
       {/* フィルター */}
       <Card>

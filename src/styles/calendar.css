@@ -1,0 +1,172 @@
+/* React Calendar カスタムスタイル */
+.react-calendar {
+  width: 100%;
+  max-width: 500px;
+  background: white;
+  border: none;
+  font-family: 'Noto Sans JP', sans-serif;
+  border-radius: 8px;
+}
+
+.react-calendar__navigation {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+  gap: 1rem;
+}
+
+.react-calendar__navigation__label {
+  font-weight: 600;
+  font-size: 1rem;
+  color: #1f2937;
+}
+
+.react-calendar__navigation button {
+  background: none;
+  border: 1px solid #e5e7eb;
+  padding: 0.5rem 1rem;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.875rem;
+  transition: all 0.2s;
+}
+
+.react-calendar__navigation button:hover {
+  background-color: #f3f4f6;
+  border-color: #d1d5db;
+}
+
+/* 月のヘッダー */
+.react-calendar__month-view__weekdays {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  margin-bottom: 0.5rem;
+  text-align: center;
+}
+
+.react-calendar__month-view__weekdays__weekday {
+  font-weight: 600;
+  font-size: 0.875rem;
+  color: #6b7280;
+  padding: 0.5rem 0;
+  text-decoration: none;
+}
+
+/* 日付グリッド */
+.react-calendar__month-view__days {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 0.25rem;
+}
+
+.react-calendar__month-view__days__day {
+  padding: 0.75rem;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.875rem;
+  text-align: center;
+  transition: all 0.2s;
+  background-color: white;
+  border: 1px solid transparent;
+  color: #1f2937;
+  position: relative;
+}
+
+.react-calendar__month-view__days__day:hover:not(.react-calendar__month-view__days__day--neighboringMonth) {
+  border-color: #d1d5db;
+  background-color: #f9fafb;
+}
+
+/* 隣月の日付 */
+.react-calendar__month-view__days__day--neighboringMonth {
+  color: #d1d5db;
+}
+
+/* 当日 */
+.react-calendar__month-view__days__day--active {
+  background-color: #3b82f6;
+  color: white;
+  font-weight: 600;
+}
+
+/* 出勤日（黄色） */
+.react-calendar__tile.attendance-working {
+  background-color: #fbbf24 !important;
+  color: #78350f !important;
+  font-weight: 600;
+  border: 2px solid #f59e0b !important;
+}
+
+.react-calendar__tile.attendance-working:hover {
+  background-color: #f59e0b !important;
+  border-color: #d97706 !important;
+}
+
+/* 休日（青） */
+.react-calendar__tile.attendance-holiday {
+  background-color: #93c5fd !important;
+  color: #1e3a8a !important;
+  font-weight: 600;
+  border: 2px solid #3b82f6 !important;
+}
+
+.react-calendar__tile.attendance-holiday:hover {
+  background-color: #60a5fa !important;
+  border-color: #1e40af !important;
+}
+
+/* その他の事項（緑） */
+.react-calendar__tile.attendance-pending {
+  background-color: #6ee7b7 !important;
+  color: #065f46 !important;
+  font-weight: 600;
+  border: 2px solid #10b981 !important;
+}
+
+.react-calendar__tile.attendance-pending:hover {
+  background-color: #34d399 !important;
+  border-color: #059669 !important;
+}
+
+/* 欠勤（赤） */
+.react-calendar__tile.attendance-absent {
+  background-color: #fca5a5 !important;
+  color: #7f1d1d !important;
+  font-weight: 600;
+  border: 2px solid #ef4444 !important;
+}
+
+.react-calendar__tile.attendance-absent:hover {
+  background-color: #f87171 !important;
+  border-color: #dc2626 !important;
+}
+
+/* 他の月の日付のスタイルをオーバーライド */
+.react-calendar__tile.attendance-working.react-calendar__month-view__days__day--neighboringMonth,
+.react-calendar__tile.attendance-holiday.react-calendar__month-view__days__day--neighboringMonth,
+.react-calendar__tile.attendance-pending.react-calendar__month-view__days__day--neighboringMonth,
+.react-calendar__tile.attendance-absent.react-calendar__month-view__days__day--neighboringMonth {
+  opacity: 0.5;
+}
+
+/* レスポンシブ */
+@media (max-width: 640px) {
+  .react-calendar {
+    max-width: 100%;
+  }
+
+  .react-calendar__month-view__days__day {
+    padding: 0.5rem 0.25rem;
+    font-size: 0.75rem;
+  }
+
+  .react-calendar__navigation button {
+    padding: 0.375rem 0.5rem;
+    font-size: 0.75rem;
+  }
+
+  .react-calendar__navigation__label {
+    font-size: 0.875rem;
+  }
+}
