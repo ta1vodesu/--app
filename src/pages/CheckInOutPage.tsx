@@ -1,32 +1,20 @@
 import React, { useState, useEffect } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
-import { Spinner } from '@/components/common/Spinner'
-import { ErrorState } from '@/components/common/ErrorState'
-
-type WorkType = 'normal' | 'remote' | 'business-trip' | null
-
-interface BreakTime {
-  startTime: string
-  endTime: string | null
-}
+import { useAuth } from '@/context/AuthContext'
+import { supabase } from '@/lib/supabase'
 
 export const CheckInOutPage: React.FC = () => {
+  const { userProfile } = useAuth()
   const [isCheckedIn, setIsCheckedIn] = useState(false)
-  const [isOnBreak, setIsOnBreak] = useState(false)
   const [checkedInTime, setCheckedInTime] = useState<string | null>(null)
-  const [checkedOutTime, setCheckedOutTime] = useState<string | null>(null)
-  const [workType, setWorkType] = useState<WorkType>(null)
-  const [breakTimes, setBreakTimes] = useState<BreakTime[]>([])
-  const [workingHours, setWorkingHours] = useState<string | null>(null)
-  const [totalBreakTime, setTotalBreakTime] = useState<string>('0h0m')
   const [currentTime, setCurrentTime] = useState<string>('')
   const [currentDate, setCurrentDate] = useState<string>('')
-  const [showWorkTypeModal, setShowWorkTypeModal] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [message, setMessage] = useState<string | null>(null)
 
+  // 毎秒時刻を更新
   useEffect(() => {
     const updateTime = () => {
       const now = new Date()
@@ -52,337 +40,204 @@ export const CheckInOutPage: React.FC = () => {
     return () => clearInterval(interval)
   }, [])
 
-  const getCurrentTime = () => {
-    const now = new Date()
-    return now.toLocaleTimeString('ja-JP', {
-      hour: '2-digit',
-      minute: '2-digit',
-      second: '2-digit',
-    })
-  }
-
-  const calculateTimeData = () => {
-    if (!checkedInTime || !checkedOutTime) return
-
-    const [inH, inM] = checkedInTime.split(':').map(Number)
-    const [outH, outM] = checkedOutTime.split(':').map(Number)
-
-    let totalMinutes = outH * 60 + outM - (inH * 60 + inM)
-
-    let breakMinutes = 0
-    breakTimes.forEach((breakTime) => {
-      if (breakTime.endTime) {
-        const [bStartH, bStartM] = breakTime.startTime.split(':').map(Number)
-        const [bEndH, bEndM] = breakTime.endTime.split(':').map(Number)
-        breakMinutes += bEndH * 60 + bEndM - (bStartH * 60 + bStartM)
-      }
-    })
-
-    const workMinutes = totalMinutes - breakMinutes
-    const hours = Math.floor(workMinutes / 60)
-    const mins = workMinutes % 60
-    setWorkingHours(`${hours}h${mins}m`)
-
-    const breakHours = Math.floor(breakMinutes / 60)
-    const breakMins = breakMinutes % 60
-    setTotalBreakTime(`${breakHours}h${breakMins}m`)
-  }
-
+  // 本日の勤怠情報を取得
   useEffect(() => {
-    calculateTimeData()
-  }, [breakTimes, checkedInTime, checkedOutTime])
+    const fetchTodayAttendance = async () => {
+      if (!userProfile?.id) return
 
-  const handleCheckIn = async (type: WorkType) => {
+      try {
+        const now = new Date()
+        const dateStr = now.toLocaleDateString('en-CA', { timeZone: 'Asia/Tokyo' }) // YYYY-MM-DD
+
+        const { data, error: fetchError } = await supabase
+          .from('attendances')
+          .select('*')
+          .eq('user_id', userProfile.id)
+          .eq('date', dateStr)
+          .single()
+          .catch(() => ({ data: null, error: null }))
+
+        if (data) {
+          setIsCheckedIn(!!data.check_in_time)
+          if (data.check_in_time) {
+            setCheckedInTime(data.check_in_time)
+          }
+        }
+      } catch (err) {
+        console.error('Failed to fetch attendance:', err)
+      }
+    }
+
+    fetchTodayAttendance()
+  }, [userProfile?.id])
+
+  const handleCheckIn = async () => {
+    if (!userProfile?.id) {
+      setError('ユーザー情報が取得できません')
+      return
+    }
+
+    setIsLoading(true)
+    setError(null)
+    setMessage(null)
+
     try {
-      setIsLoading(true)
-      setError(null)
-      const time = getCurrentTime()
-      setCheckedInTime(time)
+      const now = new Date()
+      const dateStr = now.toLocaleDateString('en-CA', { timeZone: 'Asia/Tokyo' })
+      const timeStr = now.toLocaleTimeString('en-US', {
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+        timeZone: 'Asia/Tokyo',
+      })
+
+      // 本日の勤怠情報を取得
+      const { data: existing, error: fetchError } = await supabase
+        .from('attendances')
+        .select('*')
+        .eq('user_id', userProfile.id)
+        .eq('date', dateStr)
+        .single()
+        .catch(() => ({ data: null, error: null }))
+
+      if (existing) {
+        // 既に存在する場合はエラー
+        setError('本日は既に出勤しています')
+        setIsLoading(false)
+        return
+      }
+
+      // 新しい勤怠記録を作成
+      const { error: insertError } = await supabase.from('attendances').insert({
+        user_id: userProfile.id,
+        date: dateStr,
+        check_in_time: timeStr,
+        status: 'working',
+      })
+
+      if (insertError) throw insertError
+
       setIsCheckedIn(true)
-      setWorkType(type)
-      setShowWorkTypeModal(false)
+      setCheckedInTime(timeStr)
+      setMessage(`✅ 出勤しました (${timeStr})`)
+      setTimeout(() => setMessage(null), 3000)
     } catch (err) {
-      setError(err instanceof Error ? err.message : '打刻に失敗しました')
+      console.error('Check-in failed:', err)
+      setError(err instanceof Error ? err.message : '出勤に失敗しました')
     } finally {
       setIsLoading(false)
     }
-  }
-
-  const handleBreakStart = () => {
-    if (!isCheckedIn || isOnBreak) return
-    const time = getCurrentTime()
-    setBreakTimes([...breakTimes, { startTime: time, endTime: null }])
-    setIsOnBreak(true)
-  }
-
-  const handleBreakEnd = () => {
-    if (!isOnBreak) return
-    const time = getCurrentTime()
-    const updatedBreaks = breakTimes.map((breakTime, index) =>
-      index === breakTimes.length - 1
-        ? { ...breakTime, endTime: time }
-        : breakTime
-    )
-    setBreakTimes(updatedBreaks)
-    setIsOnBreak(false)
   }
 
   const handleCheckOut = async () => {
+    if (!userProfile?.id) {
+      setError('ユーザー情報が取得できません')
+      return
+    }
+
+    setIsLoading(true)
+    setError(null)
+    setMessage(null)
+
     try {
-      setIsLoading(true)
-      setError(null)
-      if (isOnBreak) {
-        handleBreakEnd()
-      }
-      const time = getCurrentTime()
-      setCheckedOutTime(time)
+      const now = new Date()
+      const dateStr = now.toLocaleDateString('en-CA', { timeZone: 'Asia/Tokyo' })
+      const timeStr = now.toLocaleTimeString('en-US', {
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+        timeZone: 'Asia/Tokyo',
+      })
+
+      // 勤怠記録を更新
+      const { error: updateError } = await supabase
+        .from('attendances')
+        .update({ check_out_time: timeStr, status: 'approved' })
+        .eq('user_id', userProfile.id)
+        .eq('date', dateStr)
+
+      if (updateError) throw updateError
+
       setIsCheckedIn(false)
+      setMessage(`✅ 退勤しました (${timeStr})`)
+      setTimeout(() => setMessage(null), 3000)
     } catch (err) {
-      setError(err instanceof Error ? err.message : '退勤打刻に失敗しました')
+      console.error('Check-out failed:', err)
+      setError(err instanceof Error ? err.message : '退勤に失敗しました')
     } finally {
       setIsLoading(false)
     }
   }
 
-  const getWorkTypeLabel = () => {
-    switch (workType) {
-      case 'normal':
-        return '通常勤務'
-      case 'remote':
-        return 'リモート勤務'
-      case 'business-trip':
-        return '出張'
-      default:
-        return '未選択'
-    }
-  }
-
-  const workTypeOptions = [
-    { value: 'normal' as WorkType, label: '通常勤務', description: 'オフィス勤務' },
-    { value: 'remote' as WorkType, label: 'リモート勤務', description: '自宅やカフェ等' },
-    { value: 'business-trip' as WorkType, label: '出張', description: '外出・営業活動' },
-  ]
-
-  if (isLoading) {
-    return <Spinner label="打刻を処理中..." fullScreen />
-  }
-
-  if (error) {
-    return (
-      <ErrorState
-        title="打刻エラー"
-        message={error}
-        onRetry={() => setError(null)}
-      />
-    )
-  }
-
   return (
-    <div className="space-y-4 sm:space-y-6">
-      {/* リアルタイム時刻表示 */}
-      <Card className="border-2 border-primary bg-gradient-to-br from-blue-50 to-blue-100">
-        <CardContent className="pt-6 text-center">
-          <div className="space-y-2">
-            <p className="text-xs sm:text-sm text-gray-600 font-medium">
-              現在時刻 (JST)
-            </p>
-            <p className="text-4xl sm:text-6xl font-bold text-primary font-mono">
-              {currentTime}
-            </p>
-            <p className="text-sm sm:text-base text-gray-700 font-medium">
-              {currentDate}
-            </p>
-          </div>
-        </CardContent>
-      </Card>
-
+    <div className="space-y-6 sm:space-y-8">
       <div>
         <h1 className="page-title text-lg sm:text-2xl">打刻</h1>
+        <p className="text-sm text-gray-600 mt-1">出勤・退勤の打刻を行います</p>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {/* 今日の勤務状況 */}
-        <Card>
-          <CardHeader>
-            <CardTitle>今日の勤務</CardTitle>
-            <CardDescription>本日の勤務状況</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="space-y-3">
-              <div>
-                <p className="text-sm text-gray-600">勤務形態</p>
-                <p className="text-lg font-bold text-primary">
-                  {getWorkTypeLabel()}
-                </p>
-              </div>
-              <div>
-                <p className="text-sm text-gray-600">出勤時刻</p>
-                <p className="text-2xl font-bold text-primary">
-                  {checkedInTime || '—'}
-                </p>
-              </div>
-              <div>
-                <p className="text-sm text-gray-600">退勤時刻</p>
-                <p className="text-2xl font-bold text-gray-900">
-                  {checkedOutTime || '—'}
-                </p>
-              </div>
-              <div>
-                <p className="text-sm text-gray-600">休憩時間</p>
-                <p className="text-xl font-bold text-blue-600">
-                  {totalBreakTime}
-                </p>
-              </div>
-              <div>
-                <p className="text-sm text-gray-600">勤務時間</p>
-                <p className="text-2xl font-bold text-orange-600">
-                  {workingHours || '—'}
-                </p>
-              </div>
-            </div>
-
-            {isCheckedIn && (
-              <Badge variant="working" className="w-full justify-center py-2">
-                {isOnBreak ? '休憩中' : '出勤中'}
-              </Badge>
-            )}
-          </CardContent>
-        </Card>
-
-        {/* 打刻ボタン */}
-        <Card>
-          <CardHeader>
-            <CardTitle>打刻</CardTitle>
-            <CardDescription>出退勤を打刻してください</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            {!checkedInTime ? (
-              <>
-                <p className="text-center text-sm font-medium text-gray-700 mb-3">
-                  勤務形態を選択して出勤してください
-                </p>
-                {showWorkTypeModal ? (
-                  <div className="space-y-2">
-                    {workTypeOptions.map((option) => (
-                      <Button
-                        key={option.value}
-                        onClick={() => handleCheckIn(option.value)}
-                        className="w-full h-auto py-3 text-left justify-start"
-                      >
-                        <div className="flex flex-col items-start">
-                          <span className="font-bold">{option.label}</span>
-                          <span className="text-xs opacity-90">{option.description}</span>
-                        </div>
-                      </Button>
-                    ))}
-                    <Button
-                      variant="outline"
-                      onClick={() => setShowWorkTypeModal(false)}
-                      className="w-full"
-                    >
-                      キャンセル
-                    </Button>
-                  </div>
-                ) : (
-                  <Button
-                    onClick={() => setShowWorkTypeModal(true)}
-                    className="w-full h-16 text-lg font-bold"
-                  >
-                    出勤打刻
-                  </Button>
-                )}
-              </>
-            ) : !checkedOutTime ? (
-              <>
-                <p className="text-center text-sm font-medium text-gray-700">
-                  {checkedInTime} に出勤しました
-                </p>
-                <div className="space-y-2">
-                  {isOnBreak ? (
-                    <>
-                      <Badge className="w-full justify-center py-2 bg-orange-500">
-                        休憩中
-                      </Badge>
-                      <Button
-                        onClick={handleBreakEnd}
-                        className="w-full h-12 text-base font-bold bg-orange-500 hover:bg-orange-600"
-                      >
-                        休憩終了
-                      </Button>
-                    </>
-                  ) : (
-                    <Button
-                      onClick={handleBreakStart}
-                      variant="outline"
-                      className="w-full h-12 text-base font-bold"
-                    >
-                      休憩開始
-                    </Button>
-                  )}
-                  <Button
-                    onClick={handleCheckOut}
-                    variant="destructive"
-                    className="w-full h-12 text-base font-bold"
-                  >
-                    退勤打刻
-                  </Button>
-                </div>
-              </>
-            ) : (
-              <>
-                <p className="text-center text-sm font-medium text-gray-700">
-                  本日の勤務は終了しました
-                </p>
-                <Button
-                  variant="outline"
-                  onClick={() => {
-                    setIsCheckedIn(false)
-                    setIsOnBreak(false)
-                    setCheckedInTime(null)
-                    setCheckedOutTime(null)
-                    setWorkType(null)
-                    setBreakTimes([])
-                    setWorkingHours(null)
-                    setTotalBreakTime('0h0m')
-                  }}
-                  className="w-full"
-                >
-                  リセット
-                </Button>
-              </>
-            )}
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* 休憩時間記録 */}
-      {breakTimes.length > 0 && (
-        <Card>
-          <CardHeader>
-            <CardTitle>休憩時間記録</CardTitle>
-            <CardDescription>本日の休憩時間一覧</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-2">
-              {breakTimes.map((breakTime, index) => (
-                <div key={index} className="flex justify-between items-center p-3 bg-gray-50 rounded-md">
-                  <span className="font-medium">休憩 {index + 1}</span>
-                  <span className="text-sm">
-                    {breakTime.startTime} - {breakTime.endTime || '進行中'}
-                  </span>
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
+      {error && (
+        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-md">
+          ❌ {error}
+        </div>
       )}
 
-      {/* 注意事項 */}
-      <Card className="bg-blue-50 border-blue-200">
-        <CardContent className="pt-6">
-          <p className="text-sm text-blue-900">
-            💡 <strong>打刻について:</strong> 毎日の打刻データは勤務記録として保存されます。外出時や休憩時は必ず打刻してください。
-          </p>
+      {message && (
+        <div className="bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-md">
+          {message}
+        </div>
+      )}
+
+      <Card>
+        <CardHeader>
+          <CardTitle>本日の勤務</CardTitle>
+          <CardDescription>現在の時刻と出勤状況</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-6">
+            {/* 時刻表示 */}
+            <div className="text-center">
+              <p className="text-sm text-gray-600 mb-2">{currentDate}</p>
+              <p className="text-5xl font-bold text-primary mb-4">{currentTime}</p>
+            </div>
+
+            {/* 状態表示 */}
+            <div className="bg-gray-50 rounded-lg p-4 text-center">
+              <p className="text-sm text-gray-600 mb-2">勤務状態</p>
+              <p className={`text-2xl font-bold ${isCheckedIn ? 'text-green-600' : 'text-gray-600'}`}>
+                {isCheckedIn ? '出勤中' : '未出勤'}
+              </p>
+              {checkedInTime && (
+                <p className="text-sm text-gray-500 mt-2">出勤時刻: {checkedInTime}</p>
+              )}
+            </div>
+
+            {/* ボタン */}
+            <div className="flex gap-3">
+              <button
+                onClick={handleCheckIn}
+                disabled={isCheckedIn || isLoading}
+                className={`flex-1 py-3 px-4 rounded-md font-medium transition ${
+                  isCheckedIn || isLoading
+                    ? 'bg-gray-300 text-gray-600 cursor-not-allowed'
+                    : 'bg-green-600 text-white hover:bg-green-700'
+                }`}
+              >
+                {isLoading ? '処理中...' : '出勤'}
+              </button>
+              <button
+                onClick={handleCheckOut}
+                disabled={!isCheckedIn || isLoading}
+                className={`flex-1 py-3 px-4 rounded-md font-medium transition ${
+                  !isCheckedIn || isLoading
+                    ? 'bg-gray-300 text-gray-600 cursor-not-allowed'
+                    : 'bg-red-600 text-white hover:bg-red-700'
+                }`}
+              >
+                {isLoading ? '処理中...' : '退勤'}
+              </button>
+            </div>
+          </div>
         </CardContent>
       </Card>
     </div>
