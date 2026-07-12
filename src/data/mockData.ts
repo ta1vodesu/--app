@@ -168,7 +168,7 @@ export const navigationItems = [
   { label: '勤怠一覧', path: '/attendance', icon: '📋' },
   { label: '修正申請', path: '/correction', icon: '✏️' },
   { label: '承認待ち', path: '/approvals', icon: '✅' },
-  { label: '有給・欠勤', path: '/leaves', icon: '🏖️' },
+  { label: 'レポート', path: '/report', icon: '📈' },
 ]
 
 // サイドバー用（デスクトップ）- アカウント管理を追加

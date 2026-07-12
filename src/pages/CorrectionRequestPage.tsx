@@ -189,10 +189,7 @@ export const CorrectionRequestPage: React.FC = () => {
                   />
                 </div>
 
-                <Button type="submit" className="w-full">
-                  申請する
-                </Button>
-                <div className="flex gap-2 pt-2">
+                <div className="flex gap-2 pt-4">
                   <Button type="submit" className="flex-1">
                     申請する
                   </Button>
@@ -212,38 +209,35 @@ export const CorrectionRequestPage: React.FC = () => {
       )}
 
       {/* 申請状況 */}
-      <div>
-          <Card>
-            <CardHeader>
-              <CardTitle>申請状況</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              {myRequests.slice(0, 3).map((req) => (
-                <div key={req.id} className="border-b pb-3 last:border-b-0">
-                  <p className="text-xs text-gray-600">
-                    {new Date(req.attendanceDate).toLocaleDateString('ja-JP')}
-                  </p>
-                  <div className="flex items-center gap-2 mt-1">
-                    <Badge
-                      variant={
-                        req.status === RequestStatus.PENDING
-                          ? 'pending'
-                          : req.status === RequestStatus.APPROVED
-                          ? 'approved'
-                          : 'rejected'
-                      }
-                    >
-                      {req.status === RequestStatus.PENDING && '待機中'}
-                      {req.status === RequestStatus.APPROVED && '承認済み'}
-                      {req.status === RequestStatus.REJECTED && '却下'}
-                    </Badge>
-                  </div>
-                </div>
-              ))}
-            </CardContent>
-          </Card>
-        </div>
-      </div>
+      <Card>
+        <CardHeader>
+          <CardTitle>申請状況</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          {myRequests.slice(0, 3).map((req) => (
+            <div key={req.id} className="border-b pb-3 last:border-b-0">
+              <p className="text-xs text-gray-600">
+                {new Date(req.attendanceDate).toLocaleDateString('ja-JP')}
+              </p>
+              <div className="flex items-center gap-2 mt-1">
+                <Badge
+                  variant={
+                    req.status === RequestStatus.PENDING
+                      ? 'pending'
+                      : req.status === RequestStatus.APPROVED
+                      ? 'approved'
+                      : 'rejected'
+                  }
+                >
+                  {req.status === RequestStatus.PENDING && '待機中'}
+                  {req.status === RequestStatus.APPROVED && '承認済み'}
+                  {req.status === RequestStatus.REJECTED && '却下'}
+                </Badge>
+              </div>
+            </div>
+          ))}
+        </CardContent>
+      </Card>
     </div>
   )
 }
