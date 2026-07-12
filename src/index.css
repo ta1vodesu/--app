@@ -1,0 +1,118 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 0 0% 100%;
+    --foreground: 224 71% 4%;
+    --card: 0 0% 100%;
+    --card-foreground: 224 71% 4%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 224 71% 4%;
+    --muted: 220 13% 91%;
+    --muted-foreground: 215 11% 34%;
+    --accent: 220 90% 56%;
+    --accent-foreground: 210 40% 98%;
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 210 40% 98%;
+    --border: 220 13% 91%;
+    --input: 220 13% 91%;
+    --ring: 224 76% 40%;
+    /* 紺青テーマ */
+    --primary: 224 76% 40%;
+    --primary-foreground: 210 40% 98%;
+    --secondary: 217 91% 60%;
+    --secondary-foreground: 224 71% 4%;
+    --radius: 0.5rem;
+  }
+
+  .dark {
+    --background: 224 71% 4%;
+    --foreground: 213 31% 91%;
+    --card: 224 64% 9%;
+    --card-foreground: 213 31% 91%;
+    --popover: 224 64% 9%;
+    --popover-foreground: 213 31% 91%;
+    --muted: 215 27% 33%;
+    --muted-foreground: 217 33% 61%;
+    --accent: 220 90% 56%;
+    --accent-foreground: 224 71% 4%;
+    --destructive: 0 62% 30%;
+    --destructive-foreground: 210 40% 98%;
+    --border: 215 27% 33%;
+    --input: 215 27% 33%;
+    --ring: 224 76% 40%;
+    --primary: 224 76% 40%;
+    --primary-foreground: 210 40% 98%;
+    --secondary: 217 91% 60%;
+    --secondary-foreground: 224 71% 4%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+    font-feature-settings: "rlig" 1, "calt" 1;
+  }
+}
+
+/* ステータスカラー定義（日本語対応） */
+@layer base {
+  :root {
+    --color-working: 34 197 94;
+    --color-pending: 245 158 11;
+    --color-approved: 34 197 94;
+    --color-rejected: 239 68 68;
+    --color-holiday: 107 114 128;
+  }
+}
+
+/* 数値と見出しの階層 */
+@layer base {
+  .kpi-value {
+    @apply text-2xl sm:text-3xl font-bold text-primary;
+  }
+
+  .page-title {
+    @apply text-xl sm:text-2xl font-bold text-gray-900;
+  }
+
+  .section-title {
+    @apply text-base sm:text-lg font-semibold text-gray-800;
+  }
+
+  .body-text {
+    @apply text-xs sm:text-sm text-gray-700;
+  }
+
+  .caption-text {
+    @apply text-xs text-gray-500;
+  }
+}
+
+/* モバイルファースト対応 */
+@layer components {
+  /* 375px 以上で安全なグリッド */
+  .grid-safe {
+    @apply grid gap-3 sm:gap-4;
+  }
+
+  /* コンテンツパディング */
+  .content-padding {
+    @apply p-4 sm:p-6;
+  }
+
+  /* カード内パディング */
+  .card-padding {
+    @apply p-3 sm:p-6;
+  }
+
+  /* ボタンサイズ */
+  .btn-mobile {
+    @apply text-xs sm:text-sm px-2 sm:px-4 py-1 sm:py-2;
+  }
+}
