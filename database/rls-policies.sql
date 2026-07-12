@@ -295,3 +295,9 @@ CREATE POLICY "Admin can update all leaves"
 -- FROM pg_policies
 -- WHERE schema_name = 'public'
 -- ORDER BY table_name, policy_name;
+
+-- ✅ 追加: users テーブルの INSERT ポリシー
+-- サインアップ時に新規ユーザーが自分のプロフィールを作成
+CREATE POLICY "Users can create their own profile"
+  ON users FOR INSERT
+  WITH CHECK (auth.uid()::text = id::text);
