@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react'
+import React, { useState, useMemo, useEffect } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import {
@@ -12,6 +12,7 @@ import {
 import { StatusBadge } from '@/components/common/StatusBadge'
 import { EmptyState } from '@/components/common/EmptyState'
 import { Spinner } from '@/components/common/Spinner'
+import { ErrorState } from '@/components/common/ErrorState'
 import { MonthNavigator } from '@/components/common/MonthNavigator'
 import { AttendanceCalendar } from '@/components/common/AttendanceCalendar'
 import { AttendanceStatus } from '@/types'
@@ -21,7 +22,24 @@ export const AttendancePage: React.FC = () => {
   const [selectedDate, setSelectedDate] = useState(new Date())
   const [statusFilter, setStatusFilter] = useState<AttendanceStatus | 'all'>('all')
   const [dateRange, setDateRange] = useState<'week' | 'month'>('month')
-  const [isLoading, setIsLoading] = useState(false)
+  const [isLoading, setIsLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    const loadAttendances = async () => {
+      try {
+        setIsLoading(true)
+        setError(null)
+        await new Promise((resolve) => setTimeout(resolve, 500))
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'データの読み込みに失敗しました')
+      } finally {
+        setIsLoading(false)
+      }
+    }
+
+    loadAttendances()
+  }, [selectedDate])
 
   const month = selectedDate.getMonth() + 1
   const year = selectedDate.getFullYear()
@@ -51,6 +69,16 @@ export const AttendancePage: React.FC = () => {
 
     return { working, holiday, total: filteredAttendances.length }
   }, [filteredAttendances])
+
+  if (error) {
+    return (
+      <ErrorState
+        title="勤怠データ読み込みエラー"
+        message={error}
+        onRetry={() => window.location.reload()}
+      />
+    )
+  }
 
   return (
     <div className="space-y-4 sm:space-y-6">

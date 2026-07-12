@@ -193,7 +193,7 @@ CREATE POLICY "Managers can create approvals for department"
     SELECT 1 FROM users u1, correction_requests cr
     WHERE u1.id::text = auth.uid()::text
     AND u1.role = 'manager'
-    AND cr.id = correction_requests.correction_request_id
+    AND cr.id = approvals.correction_request_id
     AND u1.department_id = (
       SELECT department_id FROM users u2 WHERE u2.id = cr.user_id
     )

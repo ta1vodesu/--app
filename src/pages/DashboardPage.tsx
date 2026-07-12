@@ -1,12 +1,47 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { KpiCard } from '@/components/dashboard/KpiCard'
 import { MemberStatusTable } from '@/components/dashboard/MemberStatusTable'
 import { MonthNavigator } from '@/components/common/MonthNavigator'
+import { Spinner } from '@/components/common/Spinner'
+import { ErrorState } from '@/components/common/ErrorState'
 import { mockKPI, mockMembers } from '@/data/mockData'
 
 export const DashboardPage: React.FC = () => {
   const [selectedDate, setSelectedDate] = useState(new Date())
+  const [isLoading, setIsLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    const loadData = async () => {
+      try {
+        setIsLoading(true)
+        setError(null)
+        // APIコール時にここでデータを取得します
+        await new Promise((resolve) => setTimeout(resolve, 500))
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'データの読み込みに失敗しました')
+      } finally {
+        setIsLoading(false)
+      }
+    }
+
+    loadData()
+  }, [selectedDate])
+
+  if (isLoading) {
+    return <Spinner label="ダッシュボードを読み込み中..." fullScreen />
+  }
+
+  if (error) {
+    return (
+      <ErrorState
+        title="ダッシュボード読み込みエラー"
+        message={error}
+        onRetry={() => window.location.reload()}
+      />
+    )
+  }
 
   return (
     <div className="space-y-4 sm:space-y-6">

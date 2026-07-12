@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
+import { Spinner } from '@/components/common/Spinner'
+import { ErrorState } from '@/components/common/ErrorState'
 
 type WorkType = 'normal' | 'remote' | 'business-trip' | null
 
@@ -22,6 +24,8 @@ export const CheckInOutPage: React.FC = () => {
   const [currentTime, setCurrentTime] = useState<string>('')
   const [currentDate, setCurrentDate] = useState<string>('')
   const [showWorkTypeModal, setShowWorkTypeModal] = useState(false)
+  const [isLoading, setIsLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
     const updateTime = () => {
@@ -88,12 +92,20 @@ export const CheckInOutPage: React.FC = () => {
     calculateTimeData()
   }, [breakTimes, checkedInTime, checkedOutTime])
 
-  const handleCheckIn = (type: WorkType) => {
-    const time = getCurrentTime()
-    setCheckedInTime(time)
-    setIsCheckedIn(true)
-    setWorkType(type)
-    setShowWorkTypeModal(false)
+  const handleCheckIn = async (type: WorkType) => {
+    try {
+      setIsLoading(true)
+      setError(null)
+      const time = getCurrentTime()
+      setCheckedInTime(time)
+      setIsCheckedIn(true)
+      setWorkType(type)
+      setShowWorkTypeModal(false)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : '打刻に失敗しました')
+    } finally {
+      setIsLoading(false)
+    }
   }
 
   const handleBreakStart = () => {
@@ -115,13 +127,21 @@ export const CheckInOutPage: React.FC = () => {
     setIsOnBreak(false)
   }
 
-  const handleCheckOut = () => {
-    if (isOnBreak) {
-      handleBreakEnd()
+  const handleCheckOut = async () => {
+    try {
+      setIsLoading(true)
+      setError(null)
+      if (isOnBreak) {
+        handleBreakEnd()
+      }
+      const time = getCurrentTime()
+      setCheckedOutTime(time)
+      setIsCheckedIn(false)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : '退勤打刻に失敗しました')
+    } finally {
+      setIsLoading(false)
     }
-    const time = getCurrentTime()
-    setCheckedOutTime(time)
-    setIsCheckedIn(false)
   }
 
   const getWorkTypeLabel = () => {
@@ -142,6 +162,20 @@ export const CheckInOutPage: React.FC = () => {
     { value: 'remote' as WorkType, label: 'リモート勤務', description: '自宅やカフェ等' },
     { value: 'business-trip' as WorkType, label: '出張', description: '外出・営業活動' },
   ]
+
+  if (isLoading) {
+    return <Spinner label="打刻を処理中..." fullScreen />
+  }
+
+  if (error) {
+    return (
+      <ErrorState
+        title="打刻エラー"
+        message={error}
+        onRetry={() => setError(null)}
+      />
+    )
+  }
 
   return (
     <div className="space-y-4 sm:space-y-6">
