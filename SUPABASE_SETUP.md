@@ -1,203 +1,155 @@
-# Supabase データベースセットアップガイド
+# Supabase統合ガイド
 
-## 📌 テーブル一覧
+## セットアップ手順
 
-| テーブル | 説明 |
-|----------|------|
-| **profiles** | ユーザープロフィール（必須） |
-| **attendances** | 勤怠記録（必須） |
-| **departments** | 部署管理 |
-| **correction_requests** | 修正申請 |
-| **approvals** | 承認管理 |
-| **leaves** | 休暇申請 |
-| **leave_balance** | 休暇残数管理 |
-| **audit_logs** | 監査ログ |
+### 1. Supabaseプロジェクトの作成
 
----
+1. [Supabase](https://supabase.com)にアクセス
+2. 新しいプロジェクトを作成
+3. プロジェクト名と地域を設定
+4. パスワードを設定
 
-## 🚀 セットアップ手順
+### 2. 環境変数の設定
 
-### 1️⃣ Supabase ダッシュボードにログイン
+`.env.local`ファイルを作成（`.env.example`を参考）：
+
 ```
-https://supabase.com/dashboard/project/wirkjfsgwikhenxejeah/sql/new
+VITE_SUPABASE_URL=https://your-project.supabase.co
+VITE_SUPABASE_ANON_KEY=your-anon-key
 ```
 
-### 2️⃣ SQL エディタを開く
-- 左サイドバーの「SQL」をクリック
-- 「+ New Query」をクリック
+**取得方法:**
+1. Supabaseダッシュボード → Settings → API
+2. `Project URL` と `anon public` キーをコピー
 
-### 3️⃣ SQL スクリプトを実行
-`database/schema.sql` の内容をコピーして、SQL エディタに貼り付けます
+### 3. データベーステーブルの作成
+
+**SQL Editorで以下のスクリプトを実行:**
 
 ```sql
--- ここに database/schema.sql の内容をペースト
+-- database/complete_setup.sql の内容をそのままコピー＆実行
 ```
 
-### 4️⃣ 「RUN」ボタンをクリック
+### 4. 認証の設定
 
----
+**Supabase ダッシュボード:**
 
-## 📊 テーブルスキーマ詳細
+1. Authentication → Providers
+2. Email 認証を有効化
+3. Confirm email: **disabled** (テスト用)
+4. Site URL を設定: `http://localhost:5173`
 
-### **profiles** テーブル
-ユーザー情報を管理します
+### 5. RLS（Row Level Security）の設定
 
-```
-id          : UUID (Primary Key) - auth.users と連携
-email       : TEXT (Unique) - メールアドレス
-name        : TEXT - 名前
-department_id : UUID - 部署ID（外部キー）
-position    : TEXT - 職位
-phone       : TEXT - 電話番号
-initials    : VARCHAR(2) - イニシャル
-role        : TEXT - ロール（employee/manager/admin）
-join_date   : DATE - 入社日
-avatar_url  : TEXT - アバターURL
-created_at  : TIMESTAMP - 作成日時
-updated_at  : TIMESTAMP - 更新日時
+テーブルごとに以下のポリシーを設定：
+
+**users テーブル:**
+```sql
+-- ユーザーは自分のデータのみアクセス可能
+CREATE POLICY "Users can read own data"
+ON users FOR SELECT
+USING (auth.uid() = id);
 ```
 
-### **attendances** テーブル
-勤怠記録を管理します
+**attendances テーブル:**
+```sql
+-- 従業員は自分の勤怠記録のみアクセス可能
+CREATE POLICY "Users can read own attendances"
+ON attendances FOR SELECT
+USING (auth.uid() = user_id);
 
-```
-id              : UUID (Primary Key)
-user_id         : UUID - ユーザーID（外部キー）
-date            : DATE - 勤務日（user_id と date で一意）
-check_in_time   : TIME - 出勤時刻
-check_out_time  : TIME - 退勤時刻
-working_hours   : TEXT - 勤務時間
-break_time      : TEXT - 休憩時間
-overtime        : TEXT - 残業時間
-status          : TEXT - ステータス（working/holiday/absent/pending）
-notes           : TEXT - 備考
-created_at      : TIMESTAMP - 作成日時
-updated_at      : TIMESTAMP - 更新日時
+-- 従業員は自分の勤怠記録を作成・更新可能
+CREATE POLICY "Users can manage own attendances"
+ON attendances FOR INSERT
+WITH CHECK (auth.uid() = user_id);
 ```
 
-### **correction_requests** テーブル
-修正申請を管理します
-
-```
-id                  : UUID (Primary Key)
-user_id             : UUID - ユーザーID（外部キー）
-attendance_id       : UUID - 勤怠ID（外部キー）
-original_check_in   : TIME - 元の出勤時刻
-corrected_check_in  : TIME - 修正後の出勤時刻
-original_check_out  : TIME - 元の退勤時刻
-corrected_check_out : TIME - 修正後の退勤時刻
-reason              : TEXT - 理由
-status              : TEXT - ステータス（pending/approved/rejected）
-reviewed_by         : UUID - レビュアーID
-reviewed_at         : TIMESTAMP - レビュー日時
-created_at          : TIMESTAMP - 作成日時
-updated_at          : TIMESTAMP - 更新日時
+**correction_requests テーブル:**
+```sql
+-- 従業員は自分の修正申請のみアクセス可能
+CREATE POLICY "Users can read own corrections"
+ON correction_requests FOR SELECT
+USING (auth.uid() = user_id);
 ```
 
-### **approvals** テーブル
-承認管理を行います
+### 6. サービスの利用
 
-```
-id                      : UUID (Primary Key)
-correction_request_id   : UUID - 修正申請ID（外部キー）
-approver_id             : UUID - 承認者ID（外部キー）
-status                  : TEXT - ステータス（pending/approved/rejected）
-approval_note           : TEXT - 承認コメント
-approved_at             : TIMESTAMP - 承認日時
-created_at              : TIMESTAMP - 作成日時
-updated_at              : TIMESTAMP - 更新日時
-```
+**Login/Signup:**
+```typescript
+import { authService } from '@/services/authService'
 
-### **leaves** テーブル
-休暇申請を管理します
+// ログイン
+await authService.login(email, password)
 
-```
-id           : UUID (Primary Key)
-user_id      : UUID - ユーザーID（外部キー）
-date         : DATE - 休暇日（user_id と date で一意）
-leave_type   : TEXT - 休暇種別（paid/unpaid/sick/personal）
-reason       : TEXT - 理由
-status       : TEXT - ステータス（pending/approved/rejected）
-approved_by  : UUID - 承認者ID
-approved_at  : TIMESTAMP - 承認日時
-created_at   : TIMESTAMP - 作成日時
-updated_at   : TIMESTAMP - 更新日時
+// サインアップ
+await authService.signup(email, password, name)
+
+// ログアウト
+await authService.logout()
 ```
 
-### **leave_balance** テーブル
-休暇残数を管理します
+**勤怠記録:**
+```typescript
+import { attendanceService } from '@/services/attendanceService'
 
-```
-id                  : UUID (Primary Key)
-user_id             : UUID - ユーザーID（外部キー）
-year                : INTEGER - 年度（user_id と year で一意）
-paid_leave_total    : INTEGER - 有給休暇総数
-paid_leave_used     : INTEGER - 有給休暇使用数
-sick_leave_total    : INTEGER - 病気休暇総数
-sick_leave_used     : INTEGER - 病気休暇使用数
-updated_at          : TIMESTAMP - 更新日時
-```
+// 勤怠一覧取得
+const attendances = await attendanceService.getAttendances(userId, year, month)
 
-### **audit_logs** テーブル
-全操作履歴を記録します
+// 出勤打刻
+const attendance = await attendanceService.checkIn(userId, workType)
 
-```
-id          : UUID (Primary Key)
-user_id     : UUID - ユーザーID
-action      : TEXT - アクション
-table_name  : TEXT - テーブル名
-record_id   : UUID - レコードID
-old_values  : JSONB - 変更前の値
-new_values  : JSONB - 変更後の値
-ip_address  : TEXT - IPアドレス
-user_agent  : TEXT - User Agent
-created_at  : TIMESTAMP - 作成日時
+// 退勤打刻
+await attendanceService.checkOut(attendanceId)
 ```
 
----
+**修正申請:**
+```typescript
+import { correctionService } from '@/services/correctionService'
 
-## 🔐 セキュリティ設定
+// 修正申請を作成
+await correctionService.createCorrectionRequest(
+  userId,
+  attendanceId,
+  { correctedCheckIn: '09:00:00' },
+  '打刻ミスです'
+)
 
-### Row Level Security (RLS) 有効化
-すべてのテーブルで RLS が有効化されています。
+// 待機中の申請を取得（マネージャー用）
+const pending = await correctionService.getPendingRequests(managerId)
 
-**ポリシー概要**:
-- ユーザーは自分のデータのみ表示・編集可能
-- マネージャーは自分の部署のデータを表示可能
-- 管理者（admin）はすべてのデータにアクセス可能
+// 申請を承認
+await correctionService.approveRequest(requestId, approverId)
 
----
-
-## 📍 インデックス
-
-パフォーマンス向上のため、以下のインデックスが作成されています：
-
-```
-- attendances: user_id, date, (user_id, date)
-- correction_requests: user_id, status
-- leaves: user_id, date
-- audit_logs: user_id, table_name
+// 申請を却下
+await correctionService.rejectRequest(requestId, approverId)
 ```
 
----
+## トラブルシューティング
 
-## ✅ セットアップ完了確認
+### 認証エラー
+- `.env.local` に正しい URL と ANON_KEY が設定されているか確認
+- Supabase ダッシュボードでメール認証が有効化されているか確認
 
-セットアップ後、Supabase ダッシュボードの「Tables」セクションで以下のテーブルが表示されることを確認してください：
+### データベース接続エラー
+- RLS が有効になっていないか確認
+- 認可ユーザーがテーブルにアクセスできるポリシーが設定されているか確認
 
-- ✅ profiles
-- ✅ attendances
-- ✅ departments
-- ✅ correction_requests
-- ✅ approvals
-- ✅ leaves
-- ✅ leave_balance
-- ✅ audit_logs
+### セッションの問題
+- ブラウザの LocalStorage をクリア
+- `.env.local` を再度確認
 
----
+## マイグレーション
 
-## 🔗 関連リンク
+古いダミーデータから Supabase への移行：
 
-- Supabase ダッシュボード: https://supabase.com/dashboard
-- SQL エディタ: https://supabase.com/dashboard/project/wirkjfsgwikhenxejeah/sql
-- テーブル管理: https://supabase.com/dashboard/project/wirkjfsgwikhenxejeah/editor
+1. ダミーデータをエクスポート（CSV）
+2. Supabase にインポート
+3. ユーザーが Supabase 認証で新規登録
+4. 古いデータを削除
+
+## セキュリティのベストプラクティス
+
+- 本番環境では ANON_KEY ではなく SERVICE ROLE KEY を使用しないこと
+- RLS ポリシーを必ず設定すること
+- パスワードは bcrypt でハッシュ化すること
+- API レート制限を設定すること

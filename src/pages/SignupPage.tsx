@@ -55,6 +55,7 @@ export const SignupPage: React.FC = () => {
       navigate('/')
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : '登録に失敗しました'
+      console.error('Signup error:', err)
       setError(errorMessage)
     } finally {
       setIsLoading(false)

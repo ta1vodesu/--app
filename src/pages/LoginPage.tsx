@@ -42,6 +42,7 @@ export const LoginPage: React.FC = () => {
       navigate('/')
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'ログインに失敗しました'
+      console.error('Login error:', err)
       setError(errorMessage)
     } finally {
       setIsLoading(false)
