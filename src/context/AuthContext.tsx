@@ -125,35 +125,42 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         throw new Error(authError.message)
       }
 
-      // 2. デフォルト部署を取得（または作成）
-      let departmentId: string | undefined
-      const { data: deptData } = await supabase
+      if (!authData.user?.id) {
+        throw new Error('ユーザー作成に失敗しました')
+      }
+
+      // 2. デフォルト部署を取得（最初の部署を使用）
+      const { data: deptData, error: deptError } = await supabase
         .from('departments')
         .select('id')
         .limit(1)
         .single()
 
+      let departmentId: string | null = null
       if (deptData?.id) {
         departmentId = deptData.id
+      } else if (deptError) {
+        console.warn('部署取得エラー:', deptError)
       }
 
       // 3. ユーザープロフィールを users テーブルに保存
-      if (authData.user?.id) {
-        const { error: profileError } = await supabase
-          .from('users')
-          .insert({
-            id: authData.user.id,
-            email: email,
-            name: name || email.split('@')[0],
-            role: 'employee',
-            department_id: departmentId,
-            is_active: true,
-          })
+      const { error: profileError } = await supabase
+        .from('users')
+        .insert({
+          id: authData.user.id,
+          email: email,
+          name: name || email.split('@')[0],
+          role: 'employee',
+          department_id: departmentId,
+          is_active: true,
+        })
 
-        if (profileError) {
-          console.error('Profile creation error:', profileError)
-        }
+      if (profileError) {
+        console.error('Profile creation error:', profileError)
+        throw new Error(`プロフィール作成エラー: ${profileError.message}`)
       }
+
+      console.log('✅ ユーザー作成成功:', { id: authData.user.id, name, email, departmentId })
     } catch (error) {
       console.error('Signup error:', error)
       throw error
