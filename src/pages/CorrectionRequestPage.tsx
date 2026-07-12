@@ -1,15 +1,18 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { MonthNavigator } from '@/components/common/MonthNavigator'
-import { RequestStatus } from '@/types'
-import { mockApprovals } from '@/data/mockData'
+import { useAuth } from '@/context/AuthContext'
+import { supabase } from '@/lib/supabase'
+import { CorrectionRequest, RequestStatus } from '@/types'
 
 export const CorrectionRequestPage: React.FC = () => {
-  const [selectedDate, setSelectedDate] = useState(new Date())
-  const [formData, setFormData] = useState({
-    date: '',
+  const { userProfile } = useAuth()
+  const [myRequests, setMyRequests] = useState<CorrectionRequest[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+  const [error, setError] = useState('')
+  const [newRequest, setNewRequest] = useState({
+    attendanceDate: '',
     originalCheckIn: '',
     correctedCheckIn: '',
     originalCheckOut: '',
@@ -17,225 +20,255 @@ export const CorrectionRequestPage: React.FC = () => {
     reason: '',
   })
 
-  const [submitted, setSubmitted] = useState(false)
-  const [myRequests, setMyRequests] = useState(mockApprovals)
-  const [showForm, setShowForm] = useState(false)
+  useEffect(() => {
+    const fetchRequests = async () => {
+      try {
+        setIsLoading(true)
 
-  const handleChange = (
-    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
-  ) => {
-    const { name, value } = e.target
-    setFormData((prev) => ({ ...prev, [name]: value }))
-  }
+        if (!userProfile?.id) {
+          setError('ユーザー情報が取得できません')
+          return
+        }
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault()
+        const { data, error: fetchError } = await supabase
+          .from('correction_requests')
+          .select('*')
+          .eq('user_id', userProfile.id)
+          .order('created_at', { ascending: false })
 
-    const newRequest = {
-      id: `req-${Date.now()}`,
-      userId: 'user-001',
-      userName: '田中太郎',
-      attendanceDate: formData.date,
-      originalCheckIn: formData.originalCheckIn || undefined,
-      correctedCheckIn: formData.correctedCheckIn || undefined,
-      originalCheckOut: formData.originalCheckOut || undefined,
-      correctedCheckOut: formData.correctedCheckOut || undefined,
-      reason: formData.reason,
-      status: RequestStatus.PENDING,
+        if (fetchError) throw fetchError
+
+        setMyRequests(
+          (data || []).map((req) => ({
+            id: req.id,
+            userId: req.user_id,
+            userName: userProfile.name,
+            attendanceDate: req.attendance_id,
+            originalCheckIn: req.original_check_in,
+            correctedCheckIn: req.corrected_check_in,
+            originalCheckOut: req.original_check_out,
+            correctedCheckOut: req.corrected_check_out,
+            reason: req.reason,
+            status: req.status,
+            userInitials: userProfile.name
+              .split(' ')
+              .map((n) => n[0])
+              .join('')
+              .toUpperCase(),
+          }))
+        )
+      } catch (err) {
+        console.error('Failed to fetch correction requests:', err)
+        setError('修正申請の読み込みに失敗しました')
+      } finally {
+        setIsLoading(false)
+      }
     }
 
-    setMyRequests([newRequest, ...myRequests])
-    setFormData({
-      date: '',
-      originalCheckIn: '',
-      correctedCheckIn: '',
-      originalCheckOut: '',
-      correctedCheckOut: '',
-      reason: '',
-    })
-    setSubmitted(true)
-    setShowForm(false)
+    if (userProfile?.id) {
+      fetchRequests()
+    }
+  }, [userProfile?.id, userProfile?.name])
 
-    setTimeout(() => setSubmitted(false), 3000)
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+
+    if (!userProfile?.id) {
+      setError('ユーザー情報が取得できません')
+      return
+    }
+
+    try {
+      const { error: insertError } = await supabase.from('correction_requests').insert({
+        user_id: userProfile.id,
+        attendance_id: newRequest.attendanceDate,
+        original_check_in: newRequest.originalCheckIn || null,
+        corrected_check_in: newRequest.correctedCheckIn || null,
+        original_check_out: newRequest.originalCheckOut || null,
+        corrected_check_out: newRequest.correctedCheckOut || null,
+        reason: newRequest.reason,
+        status: RequestStatus.PENDING,
+      })
+
+      if (insertError) throw insertError
+
+      setNewRequest({
+        attendanceDate: '',
+        originalCheckIn: '',
+        correctedCheckIn: '',
+        originalCheckOut: '',
+        correctedCheckOut: '',
+        reason: '',
+      })
+
+      // リスト更新
+      const { data, error: fetchError } = await supabase
+        .from('correction_requests')
+        .select('*')
+        .eq('user_id', userProfile.id)
+        .order('created_at', { ascending: false })
+
+      if (!fetchError && data) {
+        setMyRequests(
+          data.map((req) => ({
+            id: req.id,
+            userId: req.user_id,
+            userName: userProfile.name,
+            attendanceDate: req.attendance_id,
+            originalCheckIn: req.original_check_in,
+            correctedCheckIn: req.corrected_check_in,
+            originalCheckOut: req.original_check_out,
+            correctedCheckOut: req.corrected_check_out,
+            reason: req.reason,
+            status: req.status,
+            userInitials: userProfile.name
+              .split(' ')
+              .map((n) => n[0])
+              .join('')
+              .toUpperCase(),
+          }))
+        )
+      }
+    } catch (err) {
+      console.error('Failed to submit request:', err)
+      setError('修正申請の提出に失敗しました')
+    }
+  }
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center h-screen">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
+          <p className="text-gray-600">修正申請を読み込み中...</p>
+        </div>
+      </div>
+    )
   }
 
   return (
-    <div className="space-y-4 sm:space-y-6">
+    <div className="space-y-6 sm:space-y-8">
       <div>
         <h1 className="page-title text-lg sm:text-2xl">修正申請</h1>
-        <p className="text-sm text-gray-600 mt-1">
-          勤怠記録の修正を申請してください
-        </p>
+        <p className="text-sm text-gray-600 mt-1">勤怠記録の修正を申請できます</p>
       </div>
 
-      {/* 月ナビゲーター */}
-      <MonthNavigator selectedDate={selectedDate} onMonthChange={setSelectedDate} />
-
-      {submitted && (
-        <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-          <p className="text-green-800 font-medium">
-            ✅ 修正申請を送信しました。管理者の確認をお待ちください。
-          </p>
+      {error && (
+        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-md">
+          {error}
         </div>
       )}
 
-      {/* 新規作成ボタン */}
-      {!showForm && (
-        <Button
-          onClick={() => setShowForm(true)}
-          size="lg"
-          className="w-full sm:w-auto"
-        >
-          + 新規修正申請を作成
-        </Button>
-      )}
-
-      {/* 修正申請フォーム */}
-      {showForm && (
-        <div className="lg:col-span-2">
-          <Card>
-            <CardHeader>
-              <CardTitle>修正申請フォーム</CardTitle>
-              <CardDescription>
-                勤怠記録を修正したい場合はこちらから申請してください
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <form onSubmit={handleSubmit} className="space-y-4">
-                {/* 対象日 */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    対象日 <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    type="date"
-                    name="date"
-                    value={formData.date}
-                    onChange={handleChange}
-                    required
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
-                  />
-                </div>
-
-                {/* 出勤時刻 */}
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      元の出勤時刻
-                    </label>
-                    <input
-                      type="time"
-                      name="originalCheckIn"
-                      value={formData.originalCheckIn}
-                      onChange={handleChange}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      修正後の出勤時刻
-                    </label>
-                    <input
-                      type="time"
-                      name="correctedCheckIn"
-                      value={formData.correctedCheckIn}
-                      onChange={handleChange}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
-                    />
-                  </div>
-                </div>
-
-                {/* 退勤時刻 */}
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      元の退勤時刻
-                    </label>
-                    <input
-                      type="time"
-                      name="originalCheckOut"
-                      value={formData.originalCheckOut}
-                      onChange={handleChange}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      修正後の退勤時刻
-                    </label>
-                    <input
-                      type="time"
-                      name="correctedCheckOut"
-                      value={formData.correctedCheckOut}
-                      onChange={handleChange}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
-                    />
-                  </div>
-                </div>
-
-                {/* 理由 */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    修正理由 <span className="text-red-500">*</span>
-                  </label>
-                  <textarea
-                    name="reason"
-                    value={formData.reason}
-                    onChange={handleChange}
-                    required
-                    rows={3}
-                    placeholder="修正理由を入力してください"
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
-                  />
-                </div>
-
-                <div className="flex gap-2 pt-4">
-                  <Button type="submit" className="flex-1">
-                    申請する
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() => setShowForm(false)}
-                    className="flex-1"
-                  >
-                    キャンセル
-                  </Button>
-                </div>
-              </form>
-            </CardContent>
-          </Card>
-        </div>
-      )}
-
-      {/* 申請状況 */}
       <Card>
         <CardHeader>
-          <CardTitle>申請状況</CardTitle>
+          <CardTitle>新規申請</CardTitle>
+          <CardDescription>修正内容を入力してください</CardDescription>
         </CardHeader>
-        <CardContent className="space-y-3">
-          {myRequests.slice(0, 3).map((req) => (
-            <div key={req.id} className="border-b pb-3 last:border-b-0">
-              <p className="text-xs text-gray-600">
-                {new Date(req.attendanceDate).toLocaleDateString('ja-JP')}
-              </p>
-              <div className="flex items-center gap-2 mt-1">
-                <Badge
-                  variant={
-                    req.status === RequestStatus.PENDING
-                      ? 'pending'
-                      : req.status === RequestStatus.APPROVED
-                      ? 'approved'
-                      : 'rejected'
-                  }
-                >
-                  {req.status === RequestStatus.PENDING && '待機中'}
-                  {req.status === RequestStatus.APPROVED && '承認済み'}
-                  {req.status === RequestStatus.REJECTED && '却下'}
-                </Badge>
+        <CardContent>
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium mb-1">対象日付</label>
+                <input
+                  type="date"
+                  value={newRequest.attendanceDate}
+                  onChange={(e) => setNewRequest({ ...newRequest, attendanceDate: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                  required
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-1">修正理由</label>
+                <input
+                  type="text"
+                  value={newRequest.reason}
+                  onChange={(e) => setNewRequest({ ...newRequest, reason: e.target.value })}
+                  placeholder="打刻機の不具合"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                  required
+                />
               </div>
             </div>
-          ))}
+
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-sm">
+              <div>
+                <label className="block font-medium mb-1">元の出勤時刻</label>
+                <input
+                  type="time"
+                  value={newRequest.originalCheckIn}
+                  onChange={(e) => setNewRequest({ ...newRequest, originalCheckIn: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm"
+                />
+              </div>
+              <div>
+                <label className="block font-medium mb-1">修正出勤時刻</label>
+                <input
+                  type="time"
+                  value={newRequest.correctedCheckIn}
+                  onChange={(e) => setNewRequest({ ...newRequest, correctedCheckIn: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm"
+                />
+              </div>
+              <div>
+                <label className="block font-medium mb-1">元の退勤時刻</label>
+                <input
+                  type="time"
+                  value={newRequest.originalCheckOut}
+                  onChange={(e) => setNewRequest({ ...newRequest, originalCheckOut: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm"
+                />
+              </div>
+              <div>
+                <label className="block font-medium mb-1">修正退勤時刻</label>
+                <input
+                  type="time"
+                  value={newRequest.correctedCheckOut}
+                  onChange={(e) => setNewRequest({ ...newRequest, correctedCheckOut: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm"
+                />
+              </div>
+            </div>
+
+            <Button type="submit" className="w-full">
+              申請する
+            </Button>
+          </form>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>申請履歴</CardTitle>
+          <CardDescription>あなたの修正申請一覧</CardDescription>
+        </CardHeader>
+        <CardContent>
+          {myRequests.length === 0 ? (
+            <p className="text-gray-500 text-center py-8">申請がありません</p>
+          ) : (
+            <div className="space-y-3">
+              {myRequests.map((request) => (
+                <div key={request.id} className="border border-gray-200 rounded-lg p-4">
+                  <div className="flex items-start justify-between">
+                    <div className="flex-1">
+                      <p className="font-medium">{request.attendanceDate}</p>
+                      <p className="text-sm text-gray-600 mt-1">{request.reason}</p>
+                    </div>
+                    <Badge
+                      variant={
+                        request.status === RequestStatus.APPROVED
+                          ? 'default'
+                          : request.status === RequestStatus.REJECTED
+                            ? 'destructive'
+                            : 'secondary'
+                      }
+                    >
+                      {request.status}
+                    </Badge>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>
