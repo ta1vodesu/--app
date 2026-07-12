@@ -51,12 +51,26 @@ export const SignupPage: React.FC = () => {
         return
       }
 
-      await signup(formData.email, formData.password)
-      navigate('/')
+      await signup(formData.email, formData.password, formData.name)
+      // ログイン画面にリダイレクト（メール確認が完了するまで待機）
+      navigate('/login', {
+        state: { message: 'アカウントが登録されました。ログインしてください。' }
+      })
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : '登録に失敗しました'
       console.error('Signup error:', err)
-      setError(errorMessage)
+
+      // エラーメッセージを日本語に変換
+      let displayError = errorMessage
+      if (errorMessage.includes('rate limit')) {
+        displayError = '登録回数が多すぎます。少し時間をおいてから再度お試しください。'
+      } else if (errorMessage.includes('already registered')) {
+        displayError = 'このメールアドレスは既に登録されています。'
+      } else if (errorMessage.includes('invalid email')) {
+        displayError = 'メールアドレスの形式が正しくありません。'
+      }
+
+      setError(displayError)
     } finally {
       setIsLoading(false)
     }

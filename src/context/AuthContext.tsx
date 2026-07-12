@@ -8,7 +8,7 @@ interface AuthContextType {
   isAuthenticated: boolean
   login: (email: string, password: string) => Promise<void>
   logout: () => Promise<void>
-  signup: (email: string, password: string) => Promise<void>
+  signup: (email: string, password: string, name?: string) => Promise<void>
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
@@ -53,12 +53,39 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (error) throw new Error(error.message)
   }
 
-  const signup = async (email: string, password: string) => {
-    const { error } = await supabase.auth.signUp({
-      email,
-      password,
-    })
-    if (error) throw new Error(error.message)
+  const signup = async (email: string, password: string, name?: string) => {
+    try {
+      // 1. Supabase 認証でユーザーを作成
+      const { data: authData, error: authError } = await supabase.auth.signUp({
+        email,
+        password,
+      })
+
+      if (authError) {
+        throw new Error(authError.message)
+      }
+
+      // 2. ユーザープロフィールを users テーブルに保存
+      if (authData.user?.id) {
+        const { error: profileError } = await supabase
+          .from('users')
+          .insert({
+            id: authData.user.id,
+            email: email,
+            name: name || email.split('@')[0],
+            role: 'employee',
+            is_active: true,
+          })
+
+        if (profileError) {
+          console.error('Profile creation error:', profileError)
+          // プロフィール作成に失敗しても認証は成功しているので、エラーを投げない
+        }
+      }
+    } catch (error) {
+      console.error('Signup error:', error)
+      throw error
+    }
   }
 
   const value: AuthContextType = {

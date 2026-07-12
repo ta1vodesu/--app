@@ -1,11 +1,12 @@
-import React, { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import React, { useState, useEffect } from 'react'
+import { useNavigate, useLocation } from 'react-router-dom'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { useAuth } from '@/context/AuthContext'
 
 export const LoginPage: React.FC = () => {
   const navigate = useNavigate()
+  const location = useLocation()
   const { login } = useAuth()
   const [formData, setFormData] = useState({
     email: '',
@@ -13,6 +14,18 @@ export const LoginPage: React.FC = () => {
   })
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState('')
+  const [successMessage, setSuccessMessage] = useState('')
+
+  useEffect(() => {
+    // SignupPage からのメッセージを取得
+    const state = location.state as { message?: string } | null
+    if (state?.message) {
+      setSuccessMessage(state.message)
+      // 5秒後にメッセージを非表示
+      const timer = setTimeout(() => setSuccessMessage(''), 5000)
+      return () => clearTimeout(timer)
+    }
+  }, [location.state])
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target
@@ -69,10 +82,17 @@ export const LoginPage: React.FC = () => {
           </CardHeader>
           <CardContent>
             <form onSubmit={handleSubmit} className="space-y-4">
+              {/* 成功メッセージ */}
+              {successMessage && (
+                <div className="bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-md text-sm">
+                  ✅ {successMessage}
+                </div>
+              )}
+
               {/* エラーメッセージ */}
               {error && (
                 <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-md text-sm">
-                  {error}
+                  ❌ {error}
                 </div>
               )}
 
