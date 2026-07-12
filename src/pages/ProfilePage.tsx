@@ -1,8 +1,9 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
+import { useAuth } from '@/context/AuthContext'
 
 interface ProfileData {
   name: string
@@ -14,15 +15,33 @@ interface ProfileData {
 }
 
 export const ProfilePage: React.FC = () => {
+  const { userProfile, isLoading } = useAuth()
   const [isEditing, setIsEditing] = useState(false)
   const [profileData, setProfileData] = useState<ProfileData>({
-    name: '山田太郎',
-    email: 'yamada@example.com',
-    department: '営業部',
-    position: 'マネージャー',
-    joinDate: '2020-04-01',
-    phone: '090-1234-5678',
+    name: '',
+    email: '',
+    department: '',
+    position: '',
+    joinDate: '',
+    phone: '',
   })
+  const [isLoadingData, setIsLoadingData] = useState(true)
+
+  useEffect(() => {
+    if (userProfile) {
+      setProfileData({
+        name: userProfile.name || '',
+        email: userProfile.email || '',
+        department: '営業部',
+        position: 'マネージャー',
+        joinDate: userProfile.created_at
+          ? new Date(userProfile.created_at).toISOString().split('T')[0]
+          : '',
+        phone: '未設定',
+      })
+      setIsLoadingData(false)
+    }
+  }, [userProfile])
 
   const [formData, setFormData] = useState<ProfileData>(profileData)
   const [saved, setSaved] = useState(false)
@@ -49,6 +68,33 @@ export const ProfilePage: React.FC = () => {
     .map((n) => n[0])
     .join('')
     .toUpperCase()
+
+  if (isLoading || isLoadingData) {
+    return (
+      <div className="flex items-center justify-center h-screen">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
+          <p className="text-gray-600">プロフィールを読み込み中...</p>
+        </div>
+      </div>
+    )
+  }
+
+  if (!userProfile) {
+    return (
+      <div className="space-y-4 sm:space-y-6">
+        <div>
+          <h1 className="page-title text-lg sm:text-2xl">プロフィール</h1>
+          <p className="text-sm text-gray-600 mt-1">
+            プロフィール情報を表示・編集します
+          </p>
+        </div>
+        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-md">
+          ユーザー情報を読み込めませんでした。ログインし直してください。
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="space-y-4 sm:space-y-6">

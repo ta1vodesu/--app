@@ -1,19 +1,16 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { useAuth } from '@/context/AuthContext'
+import { supabase } from '@/lib/supabase'
 
 export const AccountSettingsPage: React.FC = () => {
   const navigate = useNavigate()
-  const { logout } = useAuth()
+  const { logout, userProfile, isLoading: authLoading } = useAuth()
   const [formData, setFormData] = useState({
-    name: localStorage.getItem('user')
-      ? JSON.parse(localStorage.getItem('user') || '{}').name || ''
-      : '',
-    email: localStorage.getItem('user')
-      ? JSON.parse(localStorage.getItem('user') || '{}').email || ''
-      : '',
+    name: '',
+    email: '',
     currentPassword: '',
     newPassword: '',
     confirmPassword: '',
@@ -21,6 +18,18 @@ export const AccountSettingsPage: React.FC = () => {
   const [isLoading, setIsLoading] = useState(false)
   const [successMessage, setSuccessMessage] = useState('')
   const [error, setError] = useState('')
+  const [isLoadingData, setIsLoadingData] = useState(true)
+
+  useEffect(() => {
+    if (userProfile) {
+      setFormData((prev) => ({
+        ...prev,
+        name: userProfile.name || '',
+        email: userProfile.email || '',
+      }))
+      setIsLoadingData(false)
+    }
+  }, [userProfile])
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target
@@ -40,15 +49,27 @@ export const AccountSettingsPage: React.FC = () => {
         return
       }
 
-      await new Promise((resolve) => setTimeout(resolve, 800))
-
-      const userData = {
-        name: formData.name,
-        email: formData.email,
+      if (!userProfile?.id) {
+        setError('ユーザー情報が見つかりません')
+        setIsLoading(false)
+        return
       }
-      localStorage.setItem('user', JSON.stringify(userData))
-      setSuccessMessage('プロフィールが更新されました')
 
+      const { error: updateError } = await supabase
+        .from('users')
+        .update({
+          name: formData.name,
+          email: formData.email,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', userProfile.id)
+
+      if (updateError) {
+        setError('プロフィール更新に失敗しました')
+        return
+      }
+
+      setSuccessMessage('プロフィールが更新されました')
       setTimeout(() => setSuccessMessage(''), 3000)
     } catch (err) {
       setError('更新に失敗しました。もう一度お試しください。')
@@ -82,7 +103,14 @@ export const AccountSettingsPage: React.FC = () => {
         return
       }
 
-      await new Promise((resolve) => setTimeout(resolve, 800))
+      const { error: updateError } = await supabase.auth.updateUser({
+        password: formData.newPassword,
+      })
+
+      if (updateError) {
+        setError('パスワード変更に失敗しました。もう一度お試しください。')
+        return
+      }
 
       setSuccessMessage('パスワードが変更されました')
       setFormData((prev) => ({
@@ -107,6 +135,17 @@ export const AccountSettingsPage: React.FC = () => {
     } catch (err) {
       setError('ログアウトに失敗しました')
     }
+  }
+
+  if (authLoading || isLoadingData) {
+    return (
+      <div className="flex items-center justify-center h-screen">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
+          <p className="text-gray-600">アカウント設定を読み込み中...</p>
+        </div>
+      </div>
+    )
   }
 
   return (

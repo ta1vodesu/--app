@@ -2,8 +2,20 @@ import React, { createContext, useContext, useEffect, useState } from 'react'
 import { User } from '@supabase/supabase-js'
 import { supabase } from '@/lib/supabase'
 
+interface UserProfile {
+  id: string
+  email: string
+  name: string
+  role: string
+  department_id?: string
+  is_active: boolean
+  created_at: string
+  updated_at: string
+}
+
 interface AuthContextType {
   user: User | null
+  userProfile: UserProfile | null
   isLoading: boolean
   isAuthenticated: boolean
   login: (email: string, password: string) => Promise<void>
@@ -15,13 +27,40 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined)
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null)
+  const [userProfile, setUserProfile] = useState<UserProfile | null>(null)
   const [isLoading, setIsLoading] = useState(true)
+
+  const fetchUserProfile = async (userId: string) => {
+    try {
+      const { data, error } = await supabase
+        .from('users')
+        .select('*')
+        .eq('id', userId)
+        .single()
+
+      if (error) {
+        console.error('Failed to fetch user profile:', error)
+        return
+      }
+
+      setUserProfile(data as UserProfile)
+    } catch (error) {
+      console.error('Error fetching user profile:', error)
+    }
+  }
 
   useEffect(() => {
     const checkAuth = async () => {
       try {
         const { data } = await supabase.auth.getSession()
-        setUser(data.session?.user ?? null)
+        const authUser = data.session?.user ?? null
+        setUser(authUser)
+
+        if (authUser?.id) {
+          await fetchUserProfile(authUser.id)
+        } else {
+          setUserProfile(null)
+        }
       } catch (error) {
         console.error('Auth check failed:', error)
       } finally {
@@ -32,7 +71,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     checkAuth()
 
     const { data: listener } = supabase.auth.onAuthStateChange((_, session) => {
-      setUser(session?.user ?? null)
+      const authUser = session?.user ?? null
+      setUser(authUser)
+
+      if (authUser?.id) {
+        fetchUserProfile(authUser.id)
+      } else {
+        setUserProfile(null)
+      }
     })
 
     return () => {
@@ -41,11 +87,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, [])
 
   const login = async (email: string, password: string) => {
-    const { error } = await supabase.auth.signInWithPassword({
+    const { data, error } = await supabase.auth.signInWithPassword({
       email,
       password,
     })
     if (error) throw new Error(error.message)
+
+    if (data.user?.id) {
+      await fetchUserProfile(data.user.id)
+    }
   }
 
   const logout = async () => {
@@ -90,6 +140,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const value: AuthContextType = {
     user,
+    userProfile,
     isLoading,
     isAuthenticated: !!user,
     login,
