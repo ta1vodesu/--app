@@ -1,5 +1,8 @@
--- 勤怠管理アプリケーション - データベーススキーマ
--- PostgreSQL用
+-- 初期スキーママイグレーション
+-- 実行日時: 自動生成
+-- 説明: 勤怠管理アプリケーションの初期テーブル構築
+
+BEGIN;
 
 -- ユーザーテーブル
 CREATE TABLE users (
@@ -25,7 +28,7 @@ CREATE TABLE departments (
   FOREIGN KEY (manager_id) REFERENCES users(id) ON DELETE SET NULL
 );
 
--- ユーザーと部署の関係を修正
+-- ユーザーと部署の関係を追加
 ALTER TABLE users
 ADD CONSTRAINT fk_users_department
 FOREIGN KEY (department_id) REFERENCES departments(id) ON DELETE SET NULL;
@@ -108,3 +111,5 @@ CREATE INDEX idx_correction_requests_attendance_id ON correction_requests(attend
 CREATE INDEX idx_approvals_approver_id ON approvals(approver_id);
 CREATE INDEX idx_leave_requests_user_id ON leave_requests(user_id);
 CREATE INDEX idx_leave_requests_date ON leave_requests(leave_date);
+
+COMMIT;
