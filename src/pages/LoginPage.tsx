@@ -1,13 +1,18 @@
 import React, { useState, useEffect } from 'react'
-import { useNavigate, useLocation } from 'react-router-dom'
+import { useNavigate, useLocation, Location } from 'react-router-dom'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { useAuth } from '@/context/AuthContext'
 
+interface LocationState {
+  from?: Location
+  message?: string
+}
+
 export const LoginPage: React.FC = () => {
   const navigate = useNavigate()
   const location = useLocation()
-  const { login } = useAuth()
+  const { login, isAuthenticated } = useAuth()
   const [formData, setFormData] = useState({
     email: '',
     password: '',
@@ -15,10 +20,11 @@ export const LoginPage: React.FC = () => {
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState('')
   const [successMessage, setSuccessMessage] = useState('')
+  const [redirectPending, setRedirectPending] = useState(false)
 
   useEffect(() => {
     // SignupPage からのメッセージを取得
-    const state = location.state as { message?: string } | null
+    const state = location.state as LocationState | null
     if (state?.message) {
       setSuccessMessage(state.message)
       // 5秒後にメッセージを非表示
@@ -26,6 +32,15 @@ export const LoginPage: React.FC = () => {
       return () => clearTimeout(timer)
     }
   }, [location.state])
+
+  // ログイン後のリダイレクト（レース条件対策）
+  useEffect(() => {
+    if (redirectPending && isAuthenticated) {
+      const state = location.state as LocationState | null
+      const from = state?.from?.pathname || '/'
+      navigate(from, { replace: true })
+    }
+  }, [redirectPending, isAuthenticated, navigate, location.state])
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target
@@ -52,12 +67,11 @@ export const LoginPage: React.FC = () => {
 
     try {
       await login(formData.email, formData.password)
-      navigate('/')
+      setRedirectPending(true)
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'ログインに失敗しました'
       console.error('Login error:', err)
       setError(errorMessage)
-    } finally {
       setIsLoading(false)
     }
   }

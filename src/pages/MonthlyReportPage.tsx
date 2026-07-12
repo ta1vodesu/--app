@@ -36,7 +36,7 @@ interface MonthlyStats {
 
 export const MonthlyReportPage: React.FC = () => {
   const [selectedDate, setSelectedDate] = useState(new Date())
-  const [isLoading, setIsLoading] = useState(false)
+  const [isLoading] = useState(false)
   const [startDate, setStartDate] = useState('')
   const [endDate, setEndDate] = useState('')
   const [showFilters, setShowFilters] = useState(false)

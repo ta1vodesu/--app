@@ -49,7 +49,7 @@ export const correctionService = {
     return data?.[0] || null
   },
 
-  async getPendingRequests(managerId: string) {
+  async getPendingRequests() {
     const { data, error } = await supabase
       .from('correction_requests')
       .select('*, users(name, email), attendances(date)')

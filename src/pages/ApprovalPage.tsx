@@ -30,7 +30,7 @@ export const ApprovalPage: React.FC = () => {
   const [approvals, setApprovals] = useState<CorrectionRequest[]>(mockApprovals)
   const [selectedApproval, setSelectedApproval] = useState<CorrectionRequest | null>(null)
   const [action, setAction] = useState<'approve' | 'reject' | null>(null)
-  const [isLoading, setIsLoading] = useState(false)
+  const [isLoading] = useState(false)
 
   const handleApprove = (id: string) => {
     const updated = approvals.map((a) =>

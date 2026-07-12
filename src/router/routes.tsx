@@ -1,5 +1,6 @@
-import React from 'react'
 import { createBrowserRouter } from 'react-router-dom'
+import { ProtectedRoute } from '@/components/router/ProtectedRoute'
+import { GuestRoute } from '@/components/router/GuestRoute'
 import { AppLayout } from '@/components/layout/AppLayout'
 import { DashboardPage } from '@/pages/DashboardPage'
 import { AttendancePage } from '@/pages/AttendancePage'
@@ -18,15 +19,27 @@ export const router = createBrowserRouter(
   [
     {
       path: '/login',
-      element: <LoginPage />,
+      element: (
+        <GuestRoute>
+          <LoginPage />
+        </GuestRoute>
+      ),
     },
     {
       path: '/signup',
-      element: <SignupPage />,
+      element: (
+        <GuestRoute>
+          <SignupPage />
+        </GuestRoute>
+      ),
     },
     {
       path: '/',
-      element: <AppLayout />,
+      element: (
+        <ProtectedRoute>
+          <AppLayout />
+        </ProtectedRoute>
+      ),
       errorElement: <NotFoundPage />,
       children: [
         {
@@ -71,12 +84,5 @@ export const router = createBrowserRouter(
       path: '*',
       element: <NotFoundPage />,
     },
-  ],
-  {
-    // React Router v7 Future Flag: startTransition を有効化
-    // v7 への移行をスムーズに、Concurrent Features に対応
-    future: {
-      v7_startTransition: true,
-    },
-  }
+  ]
 )

@@ -55,7 +55,7 @@ export const LeaveManagementPage: React.FC = () => {
   ])
 
   const [submitted, setSubmitted] = useState(false)
-  const [isLoading, setIsLoading] = useState(false)
+  const [isLoading] = useState(false)
   const [showForm, setShowForm] = useState(false)
 
   const handleChange = (

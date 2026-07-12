@@ -64,8 +64,8 @@ export const CheckInOutPage: React.FC = () => {
   const calculateTimeData = () => {
     if (!checkedInTime || !checkedOutTime) return
 
-    const [inH, inM, inS] = checkedInTime.split(':').map(Number)
-    const [outH, outM, outS] = checkedOutTime.split(':').map(Number)
+    const [inH, inM] = checkedInTime.split(':').map(Number)
+    const [outH, outM] = checkedOutTime.split(':').map(Number)
 
     let totalMinutes = outH * 60 + outM - (inH * 60 + inM)
 
