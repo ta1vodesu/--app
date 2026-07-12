@@ -8,21 +8,32 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-import { mockCurrentUser } from '@/data/mockData'
+import { useAuth } from '@/context/AuthContext'
 
 export const Header: React.FC = () => {
   const navigate = useNavigate()
+  const { userProfile, logout } = useAuth()
 
-  const handleLogout = () => {
-    localStorage.removeItem('authToken')
-    localStorage.removeItem('user')
-    navigate('/login')
+  const handleLogout = async () => {
+    try {
+      await logout()
+      navigate('/login')
+    } catch (error) {
+      console.error('Logout failed:', error)
+    }
   }
+
+  const displayName = userProfile?.name || 'ユーザー'
+  const displayEmail = userProfile?.email || ''
+  const initials = userProfile?.name
+    ?.split(' ')
+    .map((n) => n[0])
+    .join('')
+    .toUpperCase() || displayName.charAt(0).toUpperCase()
 
   return (
     <header className="bg-primary text-primary-foreground border-b border-border sticky top-0 z-40">
       <div className="h-14 sm:h-16 px-3 sm:px-6 flex items-center justify-between gap-2 sm:gap-4">
-        {/* ロゴ・ブランド */}
         <div className="flex items-center gap-2 sm:gap-3 min-w-0">
           <div className="text-xl sm:text-2xl leading-none flex-shrink-0">⏱️</div>
           <h1 className="text-base sm:text-lg font-bold truncate">勤怠管理</h1>
@@ -31,27 +42,26 @@ export const Header: React.FC = () => {
           </span>
         </div>
 
-        {/* ユーザーメニュー */}
         <div className="flex items-center gap-2 flex-shrink-0">
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <button className="flex items-center gap-1 sm:gap-2 hover:bg-primary/90 px-2 sm:px-3 py-2 rounded-md transition min-w-0">
                 <Avatar className="h-7 w-7 sm:h-8 sm:w-8 bg-primary-foreground flex-shrink-0">
                   <AvatarFallback className="bg-primary-foreground text-primary font-bold text-xs sm:text-sm">
-                    {mockCurrentUser.initials || mockCurrentUser.name.charAt(0)}
+                    {initials}
                   </AvatarFallback>
                 </Avatar>
                 <span className="text-xs sm:text-sm hidden sm:inline truncate min-w-0">
-                  {mockCurrentUser.name}
+                  {displayName}
                 </span>
               </button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-48 sm:w-56">
               <DropdownMenuItem disabled>
                 <div className="flex flex-col text-xs sm:text-sm">
-                  <span className="font-medium">{mockCurrentUser.name}</span>
+                  <span className="font-medium">{displayName}</span>
                   <span className="text-xs text-muted-foreground">
-                    {mockCurrentUser.email}
+                    {displayEmail}
                   </span>
                 </div>
               </DropdownMenuItem>
