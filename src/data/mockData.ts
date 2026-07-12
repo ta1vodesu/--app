@@ -171,8 +171,9 @@ export const navigationItems = [
   { label: '有給・欠勤', path: '/leaves', icon: '🏖️' },
 ]
 
-// サイドバー用（デスクトップ）- アカウント管理を追加
+// サイドバー用（デスクトップ）- プロフィール・アカウント管理を追加
 export const sidebarNavigationItems = [
   ...navigationItems,
+  { label: 'プロフィール', path: '/profile', icon: '👤' },
   { label: 'アカウント設定', path: '/account', icon: '⚙️' },
 ]

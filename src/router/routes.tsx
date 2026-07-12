@@ -8,10 +8,16 @@ import { CheckInOutPage } from '@/pages/CheckInOutPage'
 import { CorrectionRequestPage } from '@/pages/CorrectionRequestPage'
 import { LeaveManagementPage } from '@/pages/LeaveManagementPage'
 import { AccountSettingsPage } from '@/pages/AccountSettingsPage'
+import { ProfilePage } from '@/pages/ProfilePage'
+import { LoginPage } from '@/pages/LoginPage'
 import { NotFoundPage } from '@/pages/NotFoundPage'
 
 export const router = createBrowserRouter(
   [
+    {
+      path: '/login',
+      element: <LoginPage />,
+    },
     {
       path: '/',
       element: <AppLayout />,
@@ -40,6 +46,10 @@ export const router = createBrowserRouter(
         {
           path: 'leaves',
           element: <LeaveManagementPage />,
+        },
+        {
+          path: 'profile',
+          element: <ProfilePage />,
         },
         {
           path: 'account',

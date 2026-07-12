@@ -1,201 +1,253 @@
 import React, { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
-import { Avatar, AvatarFallback } from '@/components/ui/avatar'
-import { mockCurrentUser } from '@/data/mockData'
 
 export const AccountSettingsPage: React.FC = () => {
-  const [isEditing, setIsEditing] = useState(false)
+  const navigate = useNavigate()
   const [formData, setFormData] = useState({
-    name: mockCurrentUser.name,
-    email: mockCurrentUser.email,
+    name: localStorage.getItem('user')
+      ? JSON.parse(localStorage.getItem('user') || '{}').name || ''
+      : '',
+    email: localStorage.getItem('user')
+      ? JSON.parse(localStorage.getItem('user') || '{}').email || ''
+      : '',
+    currentPassword: '',
+    newPassword: '',
+    confirmPassword: '',
   })
+  const [isLoading, setIsLoading] = useState(false)
+  const [successMessage, setSuccessMessage] = useState('')
+  const [error, setError] = useState('')
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target
     setFormData((prev) => ({ ...prev, [name]: value }))
   }
 
-  const handleSave = () => {
-    setIsEditing(false)
-    // 実装: API に保存
+  const handleProfileUpdate = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setError('')
+    setSuccessMessage('')
+    setIsLoading(true)
+
+    try {
+      if (!formData.name || !formData.email) {
+        setError('名前とメールアドレスは必須です')
+        setIsLoading(false)
+        return
+      }
+
+      await new Promise((resolve) => setTimeout(resolve, 800))
+
+      const userData = {
+        name: formData.name,
+        email: formData.email,
+      }
+      localStorage.setItem('user', JSON.stringify(userData))
+      setSuccessMessage('プロフィールが更新されました')
+
+      setTimeout(() => setSuccessMessage(''), 3000)
+    } catch (err) {
+      setError('更新に失敗しました。もう一度お試しください。')
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  const handlePasswordChange = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setError('')
+    setSuccessMessage('')
+    setIsLoading(true)
+
+    try {
+      if (!formData.currentPassword || !formData.newPassword || !formData.confirmPassword) {
+        setError('すべてのパスワードフィールドを入力してください')
+        setIsLoading(false)
+        return
+      }
+
+      if (formData.newPassword !== formData.confirmPassword) {
+        setError('新しいパスワードが一致しません')
+        setIsLoading(false)
+        return
+      }
+
+      if (formData.newPassword.length < 6) {
+        setError('パスワードは6文字以上である必要があります')
+        setIsLoading(false)
+        return
+      }
+
+      await new Promise((resolve) => setTimeout(resolve, 800))
+
+      setSuccessMessage('パスワードが変更されました')
+      setFormData((prev) => ({
+        ...prev,
+        currentPassword: '',
+        newPassword: '',
+        confirmPassword: '',
+      }))
+
+      setTimeout(() => setSuccessMessage(''), 3000)
+    } catch (err) {
+      setError('パスワード変更に失敗しました。もう一度お試しください。')
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  const handleLogout = () => {
+    localStorage.removeItem('authToken')
+    localStorage.removeItem('user')
+    navigate('/login')
   }
 
   return (
-    <div className="space-y-4 sm:space-y-6">
+    <div className="space-y-6">
       <div>
         <h1 className="page-title text-lg sm:text-2xl">アカウント設定</h1>
         <p className="text-sm text-gray-600 mt-1">
-          プロフィール情報とアカウント設定を管理します
+          プロフィール情報とセキュリティ設定を管理できます
         </p>
       </div>
 
-      {/* プロフィール */}
+      {/* プロフィール情報 */}
       <Card>
         <CardHeader>
-          <CardTitle>プロフィール</CardTitle>
+          <CardTitle>プロフィール情報</CardTitle>
           <CardDescription>
-            アカウント情報の確認・編集
+            名前とメールアドレスを更新できます
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="space-y-6">
-            {/* アバターとユーザー情報 */}
-            <div className="flex items-center gap-4">
-              <Avatar className="h-16 w-16 bg-primary-foreground">
-                <AvatarFallback className="bg-primary-foreground text-primary font-bold text-lg">
-                  {mockCurrentUser.initials}
-                </AvatarFallback>
-              </Avatar>
-              <div className="space-y-1">
-                <p className="text-lg font-semibold">{mockCurrentUser.name}</p>
-                <p className="text-sm text-gray-600">{mockCurrentUser.email}</p>
-                <div className="flex gap-2 mt-2">
-                  <Badge variant="default">
-                    {mockCurrentUser.role === 'manager'
-                      ? 'マネージャー'
-                      : mockCurrentUser.role === 'admin'
-                      ? '管理者'
-                      : '従業員'}
-                  </Badge>
-                </div>
-              </div>
+          {successMessage && (
+            <div className="bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-md text-sm mb-4">
+              ✅ {successMessage}
+            </div>
+          )}
+
+          {error && (
+            <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-md text-sm mb-4">
+              {error}
+            </div>
+          )}
+
+          <form onSubmit={handleProfileUpdate} className="space-y-4">
+            {/* 名前 */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                名前
+              </label>
+              <input
+                type="text"
+                name="name"
+                value={formData.name}
+                onChange={handleChange}
+                placeholder="山田太郎"
+                className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
+              />
             </div>
 
-            {/* 編集フォーム */}
-            {isEditing ? (
-              <div className="space-y-4 border-t pt-6">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    名前
-                  </label>
-                  <input
-                    type="text"
-                    name="name"
-                    value={formData.name}
-                    onChange={handleChange}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    メールアドレス
-                  </label>
-                  <input
-                    type="email"
-                    name="email"
-                    value={formData.email}
-                    onChange={handleChange}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
-                  />
-                </div>
-                <div className="flex gap-2">
-                  <Button onClick={handleSave} className="bg-green-600 hover:bg-green-700">
-                    保存
-                  </Button>
-                  <Button
-                    variant="outline"
-                    onClick={() => setIsEditing(false)}
-                  >
-                    キャンセル
-                  </Button>
-                </div>
-              </div>
-            ) : (
-              <div className="border-t pt-6">
-                <Button
-                  variant="outline"
-                  onClick={() => setIsEditing(true)}
-                >
-                  編集する
-                </Button>
-              </div>
-            )}
-          </div>
+            {/* メールアドレス */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                メールアドレス
+              </label>
+              <input
+                type="email"
+                name="email"
+                value={formData.email}
+                onChange={handleChange}
+                placeholder="example@claude.jp"
+                className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
+              />
+            </div>
+
+            <Button type="submit" disabled={isLoading} className="w-full sm:w-auto">
+              {isLoading ? '更新中...' : 'プロフィールを更新'}
+            </Button>
+          </form>
         </CardContent>
       </Card>
 
-      {/* セキュリティ設定 */}
+      {/* パスワード変更 */}
       <Card>
         <CardHeader>
-          <CardTitle>セキュリティ</CardTitle>
+          <CardTitle>パスワード変更</CardTitle>
           <CardDescription>
-            パスワードとセキュリティ設定
+            セキュリティのため定期的にパスワードを変更することをお勧めします
           </CardDescription>
         </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="flex items-center justify-between py-3 border-b">
+        <CardContent>
+          <form onSubmit={handlePasswordChange} className="space-y-4">
+            {/* 現在のパスワード */}
             <div>
-              <p className="font-medium">パスワード</p>
-              <p className="text-sm text-gray-600">定期的に変更することをお勧めします</p>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                現在のパスワード
+              </label>
+              <input
+                type="password"
+                name="currentPassword"
+                value={formData.currentPassword}
+                onChange={handleChange}
+                placeholder="••••••••"
+                className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
+              />
             </div>
-            <Button variant="outline" size="sm">
-              変更する
-            </Button>
-          </div>
-          <div className="flex items-center justify-between py-3 border-b">
-            <div>
-              <p className="font-medium">2段階認証</p>
-              <p className="text-sm text-gray-600">アカウントのセキュリティを強化</p>
-            </div>
-            <Badge variant="secondary">未設定</Badge>
-          </div>
-          <div className="flex items-center justify-between py-3">
-            <div>
-              <p className="font-medium">ログイン履歴</p>
-              <p className="text-sm text-gray-600">最近のログイン情報を確認</p>
-            </div>
-            <Button variant="outline" size="sm">
-              確認する
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
 
-      {/* 通知設定 */}
-      <Card>
-        <CardHeader>
-          <CardTitle>通知設定</CardTitle>
-          <CardDescription>
-            メール通知の設定
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <label className="flex items-center gap-3 py-2">
-            <input
-              type="checkbox"
-              defaultChecked
-              className="w-4 h-4 rounded border-gray-300"
-            />
-            <span className="text-sm">申請承認完了メール</span>
-          </label>
-          <label className="flex items-center gap-3 py-2">
-            <input
-              type="checkbox"
-              defaultChecked
-              className="w-4 h-4 rounded border-gray-300"
-            />
-            <span className="text-sm">勤務時間レポート</span>
-          </label>
-          <label className="flex items-center gap-3 py-2">
-            <input
-              type="checkbox"
-              defaultChecked
-              className="w-4 h-4 rounded border-gray-300"
-            />
-            <span className="text-sm">給与明細通知</span>
-          </label>
+            {/* 新しいパスワード */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                新しいパスワード
+              </label>
+              <input
+                type="password"
+                name="newPassword"
+                value={formData.newPassword}
+                onChange={handleChange}
+                placeholder="••••••••"
+                className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
+              />
+            </div>
+
+            {/* パスワード確認 */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                パスワード確認
+              </label>
+              <input
+                type="password"
+                name="confirmPassword"
+                value={formData.confirmPassword}
+                onChange={handleChange}
+                placeholder="••••••••"
+                className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
+              />
+            </div>
+
+            <Button type="submit" disabled={isLoading} className="w-full sm:w-auto">
+              {isLoading ? '変更中...' : 'パスワードを変更'}
+            </Button>
+          </form>
         </CardContent>
       </Card>
 
       {/* ログアウト */}
-      <Card>
+      <Card className="bg-red-50 border-red-200">
         <CardHeader>
-          <CardTitle>セッション</CardTitle>
+          <CardTitle className="text-red-900">ログアウト</CardTitle>
+          <CardDescription className="text-red-700">
+            このセッションをログアウトします
+          </CardDescription>
         </CardHeader>
         <CardContent>
-          <Button variant="outline" className="text-gray-700 hover:text-gray-900">
+          <Button
+            variant="destructive"
+            onClick={handleLogout}
+            className="w-full sm:w-auto"
+          >
             ログアウト
           </Button>
         </CardContent>
