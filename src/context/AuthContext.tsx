@@ -125,7 +125,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         throw new Error(authError.message)
       }
 
-      // 2. ユーザープロフィールを users テーブルに保存
+      // 2. デフォルト部署を取得（または作成）
+      let departmentId: string | undefined
+      const { data: deptData } = await supabase
+        .from('departments')
+        .select('id')
+        .limit(1)
+        .single()
+
+      if (deptData?.id) {
+        departmentId = deptData.id
+      }
+
+      // 3. ユーザープロフィールを users テーブルに保存
       if (authData.user?.id) {
         const { error: profileError } = await supabase
           .from('users')
@@ -134,12 +146,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             email: email,
             name: name || email.split('@')[0],
             role: 'employee',
+            department_id: departmentId,
             is_active: true,
           })
 
         if (profileError) {
           console.error('Profile creation error:', profileError)
-          // プロフィール作成に失敗しても認証は成功しているので、エラーを投げない
         }
       }
     } catch (error) {

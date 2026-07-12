@@ -17,10 +17,15 @@ export const DashboardPage: React.FC = () => {
     const fetchDashboardData = async () => {
       try {
         setIsLoading(true)
+        setError('')
 
-        // ユーザーが属する部署を確認
         if (!userProfile?.id) {
           setError('ユーザー情報が取得できません')
+          return
+        }
+
+        if (!userProfile.department_id) {
+          setError('部署が割り当てられていません。管理者に連絡してください。')
           return
         }
 
@@ -32,18 +37,29 @@ export const DashboardPage: React.FC = () => {
 
         if (membersError) throw membersError
 
+        if (!membersData || membersData.length === 0) {
+          setMembers([])
+          setKpi({
+            attendanceRate: 0,
+            averageWorkingHours: '-',
+            pendingApprovals: 0,
+            overtimeHours: 0,
+          })
+          return
+        }
+
         // メンバーの勤怠情報を取得
         const today = new Date().toISOString().split('T')[0]
         const { data: attendanceData, error: attendanceError } = await supabase
           .from('attendances')
           .select('*')
           .eq('date', today)
-          .in('user_id', membersData?.map((m) => m.id) || [])
+          .in('user_id', membersData.map((m) => m.id))
 
         if (attendanceError) throw attendanceError
 
         // メンバーステータスを構成
-        const memberStatuses: MemberStatus[] = (membersData || []).map((member) => {
+        const memberStatuses: MemberStatus[] = membersData.map((member) => {
           const attendance = attendanceData?.find((a) => a.user_id === member.id)
           return {
             id: member.id,
@@ -65,8 +81,8 @@ export const DashboardPage: React.FC = () => {
 
         // KPI を計算
         const attendedCount = attendanceData?.filter((a) => a.status === 'working').length || 0
-        const totalCount = membersData?.length || 1
-        const attendanceRate = ((attendedCount / totalCount) * 100).toFixed(1)
+        const totalCount = membersData.length
+        const attendanceRate = totalCount > 0 ? ((attendedCount / totalCount) * 100).toFixed(1) : '0'
 
         setKpi({
           attendanceRate: parseFloat(attendanceRate),
@@ -77,6 +93,8 @@ export const DashboardPage: React.FC = () => {
       } catch (err) {
         console.error('Failed to fetch dashboard data:', err)
         setError('ダッシュボードデータの読み込みに失敗しました')
+        setMembers([])
+        setKpi(null)
       } finally {
         setIsLoading(false)
       }
@@ -98,26 +116,18 @@ export const DashboardPage: React.FC = () => {
     )
   }
 
-  if (error) {
-    return (
-      <div className="space-y-4">
-        <div>
-          <h1 className="page-title text-lg sm:text-2xl">ダッシュボード</h1>
-          <p className="text-sm text-gray-600 mt-1">部署全体のパフォーマンスを確認できます</p>
-        </div>
-        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-md">
-          {error}
-        </div>
-      </div>
-    )
-  }
-
   return (
     <div className="space-y-6 sm:space-y-8">
       <div>
         <h1 className="page-title text-lg sm:text-2xl">ダッシュボード</h1>
         <p className="text-sm text-gray-600 mt-1">部署全体のパフォーマンスを確認できます</p>
       </div>
+
+      {error && (
+        <div className="bg-yellow-50 border border-yellow-200 text-yellow-700 px-4 py-3 rounded-md">
+          ⚠️ {error}
+        </div>
+      )}
 
       {kpi && (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
@@ -134,7 +144,11 @@ export const DashboardPage: React.FC = () => {
           <CardDescription>本日の出勤状況</CardDescription>
         </CardHeader>
         <CardContent>
-          <MemberStatusTable members={members} />
+          {members.length === 0 ? (
+            <p className="text-gray-500 text-center py-8">メンバーがいません</p>
+          ) : (
+            <MemberStatusTable members={members} />
+          )}
         </CardContent>
       </Card>
     </div>
