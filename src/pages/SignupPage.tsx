@@ -3,6 +3,8 @@ import { useNavigate } from 'react-router-dom'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { useAuth } from '@/context/AuthContext'
+import { isSupabaseConfigured } from '@/lib/supabase'
+import { SetupRequiredPage } from './SetupRequiredPage'
 
 export const SignupPage: React.FC = () => {
   const navigate = useNavigate()
@@ -15,6 +17,11 @@ export const SignupPage: React.FC = () => {
   })
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState('')
+
+  // Supabase が設定されていない場合はセットアップページを表示
+  if (!isSupabaseConfigured()) {
+    return <SetupRequiredPage />
+  }
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target
@@ -52,7 +59,6 @@ export const SignupPage: React.FC = () => {
       }
 
       await signup(formData.email, formData.password, formData.name)
-      // ログイン画面にリダイレクト（メール確認が完了するまで待機）
       navigate('/login', {
         state: { message: 'アカウントが登録されました。ログインしてください。' }
       })
@@ -60,7 +66,6 @@ export const SignupPage: React.FC = () => {
       const errorMessage = err instanceof Error ? err.message : '登録に失敗しました'
       console.error('Signup error:', err)
 
-      // エラーメッセージを日本語に変換
       let displayError = errorMessage
       if (errorMessage.includes('rate limit')) {
         displayError = '登録回数が多すぎます。少し時間をおいてから再度お試しください。'
@@ -79,14 +84,12 @@ export const SignupPage: React.FC = () => {
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-blue-100 p-4">
       <div className="w-full max-w-md">
-        {/* ロゴ・ブランド */}
         <div className="text-center mb-8">
           <div className="text-5xl mb-3">⏱️</div>
           <h1 className="text-3xl font-bold text-gray-900">勤怠管理</h1>
           <p className="text-gray-600 mt-2">CLAUDE研修 Inc.</p>
         </div>
 
-        {/* サインアップフォーム */}
         <Card>
           <CardHeader>
             <CardTitle>アカウント登録</CardTitle>
@@ -96,14 +99,12 @@ export const SignupPage: React.FC = () => {
           </CardHeader>
           <CardContent>
             <form onSubmit={handleSubmit} className="space-y-4">
-              {/* エラーメッセージ */}
               {error && (
                 <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-md text-sm">
                   {error}
                 </div>
               )}
 
-              {/* 名前 */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   名前
@@ -118,7 +119,6 @@ export const SignupPage: React.FC = () => {
                 />
               </div>
 
-              {/* メールアドレス */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   メールアドレス
@@ -133,7 +133,6 @@ export const SignupPage: React.FC = () => {
                 />
               </div>
 
-              {/* パスワード */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   パスワード
@@ -148,7 +147,6 @@ export const SignupPage: React.FC = () => {
                 />
               </div>
 
-              {/* パスワード確認 */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   パスワード確認
@@ -163,7 +161,6 @@ export const SignupPage: React.FC = () => {
                 />
               </div>
 
-              {/* 登録ボタン */}
               <Button
                 type="submit"
                 disabled={isLoading}
@@ -172,7 +169,6 @@ export const SignupPage: React.FC = () => {
                 {isLoading ? '登録中...' : 'アカウント登録'}
               </Button>
 
-              {/* ログインリンク */}
               <div className="text-center text-sm text-gray-600">
                 既にアカウントをお持ちの方は
                 <button

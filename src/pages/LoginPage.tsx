@@ -3,6 +3,8 @@ import { useNavigate, useLocation, Location } from 'react-router-dom'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { useAuth } from '@/context/AuthContext'
+import { isSupabaseConfigured } from '@/lib/supabase'
+import { SetupRequiredPage } from './SetupRequiredPage'
 
 interface LocationState {
   from?: Location
@@ -22,12 +24,16 @@ export const LoginPage: React.FC = () => {
   const [successMessage, setSuccessMessage] = useState('')
   const [redirectPending, setRedirectPending] = useState(false)
 
+  // Supabase が設定されていない場合はセットアップページを表示
+  if (!isSupabaseConfigured()) {
+    return <SetupRequiredPage />
+  }
+
   useEffect(() => {
     // SignupPage からのメッセージを取得
     const state = location.state as LocationState | null
     if (state?.message) {
       setSuccessMessage(state.message)
-      // 5秒後にメッセージを非表示
       const timer = setTimeout(() => setSuccessMessage(''), 5000)
       return () => clearTimeout(timer)
     }
@@ -52,7 +58,6 @@ export const LoginPage: React.FC = () => {
     setError('')
     setIsLoading(true)
 
-    // バリデーション
     if (!formData.email || !formData.password) {
       setError('メールアドレスとパスワードを入力してください')
       setIsLoading(false)
@@ -79,14 +84,12 @@ export const LoginPage: React.FC = () => {
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-blue-100 p-4">
       <div className="w-full max-w-md">
-        {/* ロゴ・ブランド */}
         <div className="text-center mb-8">
           <div className="text-5xl mb-3">⏱️</div>
           <h1 className="text-3xl font-bold text-gray-900">勤怠管理</h1>
           <p className="text-gray-600 mt-2">CLAUDE研修 Inc.</p>
         </div>
 
-        {/* ログインフォーム */}
         <Card>
           <CardHeader>
             <CardTitle>ログイン</CardTitle>
@@ -96,21 +99,18 @@ export const LoginPage: React.FC = () => {
           </CardHeader>
           <CardContent>
             <form onSubmit={handleSubmit} className="space-y-4">
-              {/* 成功メッセージ */}
               {successMessage && (
                 <div className="bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-md text-sm">
                   ✅ {successMessage}
                 </div>
               )}
 
-              {/* エラーメッセージ */}
               {error && (
                 <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-md text-sm">
                   ❌ {error}
                 </div>
               )}
 
-              {/* メールアドレス */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   メールアドレス
@@ -125,7 +125,6 @@ export const LoginPage: React.FC = () => {
                 />
               </div>
 
-              {/* パスワード */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   パスワード
@@ -140,7 +139,6 @@ export const LoginPage: React.FC = () => {
                 />
               </div>
 
-              {/* パスワード忘却リンク */}
               <div className="text-right">
                 <button
                   type="button"
@@ -150,7 +148,6 @@ export const LoginPage: React.FC = () => {
                 </button>
               </div>
 
-              {/* ログインボタン */}
               <Button
                 type="submit"
                 disabled={isLoading}
@@ -159,7 +156,6 @@ export const LoginPage: React.FC = () => {
                 {isLoading ? 'ログイン中...' : 'ログイン'}
               </Button>
 
-              {/* サインアップボタン */}
               <div className="pt-2 space-y-3">
                 <div className="relative">
                   <div className="absolute inset-0 flex items-center">
@@ -183,11 +179,11 @@ export const LoginPage: React.FC = () => {
           </CardContent>
         </Card>
 
-        {/* 利用可能なテスト認証情報 */}
         <div className="mt-6 p-4 bg-blue-50 border border-blue-200 rounded-lg text-sm text-gray-700">
           <p className="font-medium mb-2">テスト用認証情報:</p>
           <p>メール: test@example.com</p>
           <p>パスワード: password123</p>
+          <p className="text-xs text-gray-500 mt-2">※ Supabase が設定されている場合のみ使用可能</p>
         </div>
       </div>
     </div>
