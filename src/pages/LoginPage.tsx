@@ -145,16 +145,25 @@ export const LoginPage: React.FC = () => {
                 {isLoading ? 'ログイン中...' : 'ログイン'}
               </Button>
 
-              {/* サインアップリンク */}
-              <div className="text-center text-sm text-gray-600">
-                アカウントをお持ちでない方は
-                <button
+              {/* サインアップボタン */}
+              <div className="pt-2 space-y-3">
+                <div className="relative">
+                  <div className="absolute inset-0 flex items-center">
+                    <div className="w-full border-t border-gray-300"></div>
+                  </div>
+                  <div className="relative flex justify-center text-sm">
+                    <span className="px-2 bg-white text-gray-500">または</span>
+                  </div>
+                </div>
+
+                <Button
                   type="button"
+                  variant="outline"
                   onClick={() => navigate('/signup')}
-                  className="text-primary hover:underline ml-1"
+                  className="w-full"
                 >
-                  こちらから登録
-                </button>
+                  新しいアカウントを作成
+                </Button>
               </div>
             </form>
           </CardContent>
