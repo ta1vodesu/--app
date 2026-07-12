@@ -54,8 +54,12 @@ export const CheckInOutPage: React.FC = () => {
           .select('*')
           .eq('user_id', userProfile.id)
           .eq('date', dateStr)
-          .single()
-          .catch(() => ({ data: null, error: null }))
+          .maybeSingle()
+
+        if (fetchError) {
+          console.error('[CheckInOutPage] 勤怠情報取得エラー:', fetchError)
+          return
+        }
 
         if (data) {
           setIsCheckedIn(!!data.check_in_time)
@@ -64,7 +68,7 @@ export const CheckInOutPage: React.FC = () => {
           }
         }
       } catch (err) {
-        console.error('Failed to fetch attendance:', err)
+        console.error('[CheckInOutPage] 勤怠情報取得例外:', err)
       }
     }
 
@@ -97,8 +101,11 @@ export const CheckInOutPage: React.FC = () => {
         .select('*')
         .eq('user_id', userProfile.id)
         .eq('date', dateStr)
-        .single()
-        .catch(() => ({ data: null, error: null }))
+        .maybeSingle()
+
+      if (fetchError) {
+        throw fetchError
+      }
 
       if (existing) {
         // 既に存在する場合はエラー

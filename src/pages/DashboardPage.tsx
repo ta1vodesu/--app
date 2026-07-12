@@ -21,13 +21,34 @@ export const DashboardPage: React.FC = () => {
 
         if (!userProfile?.id) {
           setError('ユーザー情報が取得できません')
+          setMembers([])
+          setKpi(null)
+          setIsLoading(false)
           return
         }
 
         if (!userProfile.department_id) {
-          setError('部署が割り当てられていません。管理者に連絡してください。')
-          return
+          console.log('部署が割り当てられていません。デフォルト部署を検索します...')
+          
+          // デフォルト部署を取得
+          const { data: deptData, error: deptError } = await supabase
+            .from('departments')
+            .select('id')
+            .limit(1)
+            .single()
+
+          if (deptError || !deptData) {
+            setError('部署情報が見つかりません')
+            setMembers([])
+            setKpi(null)
+            setIsLoading(false)
+            return
+          }
+
+          userProfile.department_id = deptData.id
         }
+
+        console.log('Fetching members for department:', userProfile.department_id)
 
         // 部署内のメンバーを取得
         const { data: membersData, error: membersError } = await supabase
@@ -35,9 +56,13 @@ export const DashboardPage: React.FC = () => {
           .select('id, name, email, role')
           .eq('department_id', userProfile.department_id)
 
-        if (membersError) throw membersError
+        if (membersError) {
+          console.error('Members query error:', membersError)
+          throw new Error(`メンバー取得エラー: ${membersError.message}`)
+        }
 
         if (!membersData || membersData.length === 0) {
+          console.log('No members found')
           setMembers([])
           setKpi({
             attendanceRate: 0,
@@ -45,8 +70,11 @@ export const DashboardPage: React.FC = () => {
             pendingApprovals: 0,
             overtimeHours: 0,
           })
+          setIsLoading(false)
           return
         }
+
+        console.log('Found members:', membersData.length)
 
         // メンバーの勤怠情報を取得
         const today = new Date().toISOString().split('T')[0]
@@ -56,7 +84,10 @@ export const DashboardPage: React.FC = () => {
           .eq('date', today)
           .in('user_id', membersData.map((m) => m.id))
 
-        if (attendanceError) throw attendanceError
+        if (attendanceError) {
+          console.error('Attendance query error:', attendanceError)
+          throw new Error(`勤怠取得エラー: ${attendanceError.message}`)
+        }
 
         // メンバーステータスを構成
         const memberStatuses: MemberStatus[] = membersData.map((member) => {
@@ -92,7 +123,8 @@ export const DashboardPage: React.FC = () => {
         })
       } catch (err) {
         console.error('Failed to fetch dashboard data:', err)
-        setError('ダッシュボードデータの読み込みに失敗しました')
+        const errorMsg = err instanceof Error ? err.message : 'ダッシュボードデータの読み込みに失敗しました'
+        setError(errorMsg)
         setMembers([])
         setKpi(null)
       } finally {
@@ -125,7 +157,9 @@ export const DashboardPage: React.FC = () => {
 
       {error && (
         <div className="bg-yellow-50 border border-yellow-200 text-yellow-700 px-4 py-3 rounded-md">
-          ⚠️ {error}
+          <p className="font-medium">⚠️ エラー</p>
+          <p className="text-sm mt-1">{error}</p>
+          <p className="text-xs text-yellow-600 mt-2">ブラウザのコンソールで詳細を確認してください</p>
         </div>
       )}
 

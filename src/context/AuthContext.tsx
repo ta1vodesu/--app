@@ -33,6 +33,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const fetchUserProfile = async (userId: string) => {
     try {
       console.log('[AuthContext] プロフィール取得開始:', userId)
+      
       const { data, error } = await supabase
         .from('users')
         .select('*')
@@ -40,14 +41,21 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         .single()
 
       if (error) {
-        console.error('[AuthContext] ❌ プロフィール取得エラー:', error)
-        return
+        console.error('[AuthContext] ❌ プロフィール取得エラー:', {
+          message: error.message,
+          details: error.details,
+          hint: error.hint,
+          code: error.code,
+        })
+        return null
       }
 
       console.log('[AuthContext] ✅ プロフィール取得成功:', data)
       setUserProfile(data as UserProfile)
+      return data as UserProfile
     } catch (error) {
-      console.error('[AuthContext] ❌ プロフィール取得エラー:', error)
+      console.error('[AuthContext] ❌ プロフィール取得例外:', error)
+      return null
     }
   }
 
@@ -135,7 +143,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       console.log('[AuthContext] サインアップ開始:', { email, name })
       
-      // 1. Supabase 認証でユーザーを作成
       const { data: authData, error: authError } = await supabase.auth.signUp({
         email,
         password,
@@ -151,8 +158,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       console.log('[AuthContext] ✅ 認証ユーザー作成成功:', authData.user.id)
 
-      // 2. デフォルト部署を取得（最初の部署を使用）
-      const { data: deptData, error: deptError } = await supabase
+      const { data: deptData } = await supabase
         .from('departments')
         .select('id')
         .limit(1)
@@ -162,11 +168,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (deptData?.id) {
         departmentId = deptData.id
         console.log('[AuthContext] ✅ 部署を取得:', departmentId)
-      } else if (deptError) {
-        console.warn('[AuthContext] ⚠️ 部署取得エラー:', deptError)
       }
 
-      // 3. ユーザープロフィールを users テーブルに保存
       const { error: profileError } = await supabase
         .from('users')
         .insert({
@@ -185,7 +188,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       console.log('[AuthContext] ✅ プロフィール作成成功')
 
-      // 4. 登録したユーザーで自動ログイン
       const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
         email,
         password,
