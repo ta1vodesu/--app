@@ -2,11 +2,13 @@ import React, { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
+import { useAuth } from '@/context/AuthContext'
 import { isSupabaseConfigured } from '@/lib/supabase'
 import { SetupRequiredPage } from './SetupRequiredPage'
 
 export const SignupPage: React.FC = () => {
   const navigate = useNavigate()
+  const { signup } = useAuth()
   const [formData, setFormData] = useState({
     name: '',
     email: '',
@@ -55,25 +57,7 @@ export const SignupPage: React.FC = () => {
         return
       }
 
-      const response = await fetch('http://localhost:3001/api/auth/signup', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          name: formData.name,
-          email: formData.email,
-          password: formData.password,
-        }),
-      })
-
-      if (!response.ok) {
-        const errorData = await response.json()
-        setError(errorData.error || '登録に失敗しました')
-        setIsLoading(false)
-        return
-      }
-
+      await signup(formData.email, formData.password, formData.name)
       navigate('/login', {
         state: { message: 'アカウントが登録されました。ログインしてください。' },
       })
@@ -88,8 +72,6 @@ export const SignupPage: React.FC = () => {
         displayError = 'このメールアドレスは既に登録されています。'
       } else if (errorMessage.includes('invalid email')) {
         displayError = 'メールアドレスの形式が正しくありません。'
-      } else if (errorMessage.includes('Connection refused')) {
-        displayError = 'サーバーが起動していません。npm run server を実行してください。'
       }
 
       setError(displayError)
