@@ -80,16 +80,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   useEffect(() => {
     const checkAuth = async () => {
       try {
-        console.log('[AuthContext] 認証状態チェック開始')
         const { data } = await supabase.auth.getSession()
         const authUser = data.session?.user ?? null
         setUser(authUser)
 
         if (authUser?.id) {
-          console.log('[AuthContext] ✅ セッション有効:', authUser.email)
           await fetchUserProfile(authUser.id, true)
         } else {
-          console.log('[AuthContext] ℹ️ セッションなし')
           setUserProfile(null)
         }
       } catch (error) {
@@ -101,16 +98,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     checkAuth()
 
-    const { data: listener } = supabase.auth.onAuthStateChange((event, session) => {
-      console.log('[AuthContext] 認証状態変化:', event)
+    const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
       const authUser = session?.user ?? null
       setUser(authUser)
 
       if (authUser?.id) {
-        console.log('[AuthContext] ✅ ユーザーログイン:', authUser.email)
         fetchUserProfile(authUser.id, true)
       } else {
-        console.log('[AuthContext] 🚪 ユーザーログアウト')
         setUserProfile(null)
         profileFetchingRef.current.clear()
         lastProfileFetchRef.current.clear()
@@ -124,14 +118,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const login = async (email: string, password: string) => {
     try {
-      console.log('[AuthContext] ログイン開始:', email)
       const { data, error } = await supabase.auth.signInWithPassword({
         email,
         password,
       })
       if (error) throw new Error(error.message)
 
-      console.log('[AuthContext] ✅ ログイン成功')
       if (data.user?.id) {
         setUser(data.user)
         await fetchUserProfile(data.user.id, true)
@@ -144,11 +136,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const logout = async () => {
     try {
-      console.log('[AuthContext] ログアウト開始')
       const { error } = await supabase.auth.signOut()
       if (error) throw new Error(error.message)
 
-      console.log('[AuthContext] ✅ ログアウト成功')
       setUser(null)
       setUserProfile(null)
       profileFetchingRef.current.clear()
@@ -163,8 +153,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const signup = async (email: string, password: string, name?: string) => {
     try {
-      console.log('[AuthContext] サインアップ開始:', { email, name })
-
       const { data: authData, error: authError } = await supabase.auth.signUp({
         email,
         password,
@@ -177,8 +165,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (!authData.user?.id) {
         throw new Error('ユーザー作成に失敗しました')
       }
-
-      console.log('[AuthContext] ✅ 認証ユーザー作成成功:', authData.user.id)
 
       const { error: profileError } = await supabase.from('profiles').insert({
         id: authData.user.id,
@@ -194,8 +180,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         throw new Error(`プロフィール作成エラー: ${profileError.message}`)
       }
 
-      console.log('[AuthContext] ✅ プロフィール作成成功')
-
       const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
         email,
         password,
@@ -207,12 +191,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
 
       if (signInData.user?.id) {
-        console.log('[AuthContext] ✅ 自動ログイン成功')
         setUser(signInData.user)
         await fetchUserProfile(signInData.user.id, true)
       }
-
-      console.log('[AuthContext] ✅ サインアップ完了')
     } catch (error) {
       console.error('[AuthContext] ❌ サインアップエラー:', error)
       throw error

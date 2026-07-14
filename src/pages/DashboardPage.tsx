@@ -144,7 +144,7 @@ export const DashboardPage: React.FC = () => {
           })
         }
       } catch (err) {
-        console.log('[Dashboard] エラー:', err)
+        console.error('[Dashboard] エラー:', err)
       } finally {
         setIsLoading(false)
       }

@@ -71,7 +71,7 @@ export const LoginPage: React.FC = () => {
     }
 
     try {
-      console.log("[LoginPage] ログイン試行:", formData.email); await login(formData.email, formData.password); console.log("[LoginPage]ログイン成功");
+      await login(formData.email, formData.password)
       setRedirectPending(true)
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'ログインに失敗しました'
