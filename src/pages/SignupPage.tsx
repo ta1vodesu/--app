@@ -14,6 +14,7 @@ export const SignupPage: React.FC = () => {
     email: '',
     password: '',
     confirmPassword: '',
+    role: 'employee',
   })
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState('')
@@ -57,7 +58,7 @@ export const SignupPage: React.FC = () => {
         return
       }
 
-      await signup(formData.email, formData.password, formData.name)
+      await signup(formData.email, formData.password, formData.name, formData.role)
       // 自動ログイン成功後は GuestRoute がダッシュボードへリダイレクトする
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : '登録に失敗しました'
@@ -162,6 +163,36 @@ export const SignupPage: React.FC = () => {
                   placeholder="••••••••"
                   className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
                 />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-3">
+                  ロール選択
+                </label>
+                <div className="space-y-2">
+                  <label className="flex items-center">
+                    <input
+                      type="radio"
+                      name="role"
+                      value="employee"
+                      checked={formData.role === 'employee'}
+                      onChange={handleChange}
+                      className="mr-2"
+                    />
+                    <span className="text-sm text-gray-700">従業員</span>
+                  </label>
+                  <label className="flex items-center">
+                    <input
+                      type="radio"
+                      name="role"
+                      value="admin"
+                      checked={formData.role === 'admin'}
+                      onChange={handleChange}
+                      className="mr-2"
+                    />
+                    <span className="text-sm text-gray-700">管理者</span>
+                  </label>
+                </div>
               </div>
 
               <Button

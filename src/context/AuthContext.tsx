@@ -143,7 +143,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (error) throw new Error(error.message)
   }
 
-  const signup = async (email: string, password: string, name?: string) => {
+  const signup = async (email: string, password: string, name?: string, selectedRole?: string) => {
     // 1) 認証ユーザーを作成。既存アカウントなら同じ認証情報でログインを試みて救済する
     //    （過去にプロフィール作成まで到達せず失敗したアカウント対策）
     let userId: string | null = null
@@ -193,8 +193,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       .maybeSingle()
 
     if (!existingProfile) {
-      // DB 側の role CHECK 制約の差異に耐えるため、許可される値まで順に試す
-      const roleCandidates = ['employee', UserRole.MEMBER]
+      // ユーザーが選択したロールがあればそれを使用、なければデフォルトで試す
+      const roleCandidates = selectedRole ? [selectedRole, 'employee', UserRole.MEMBER] : ['employee', UserRole.MEMBER]
       let profileError: { code?: string } | null = null
 
       for (const role of roleCandidates) {
