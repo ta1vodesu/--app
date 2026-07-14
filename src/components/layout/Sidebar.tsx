@@ -7,8 +7,9 @@ export const Sidebar: React.FC = () => {
   const location = useLocation()
 
   return (
-    <aside className="w-64 bg-gray-50 border-r border-border h-[calc(100vh-4rem)] overflow-y-auto sticky top-16 flex flex-col">
-      <nav className="p-4 space-y-1 flex-1">
+    <aside className="w-64 bg-white border-r border-gray-200 h-[calc(100vh-4rem)] overflow-y-auto sticky top-16 flex flex-col shadow-sm">
+      {/* メニュー部分 */}
+      <nav className="flex-1 px-3 py-4 space-y-1">
         {sidebarNavigationItems.map((item) => {
           const isActive = location.pathname === item.path
           return (
@@ -16,23 +17,27 @@ export const Sidebar: React.FC = () => {
               key={item.path}
               to={item.path}
               className={cn(
-                'flex items-center gap-3 px-4 py-2.5 rounded-md text-sm font-medium transition-colors min-w-0',
+                'flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 min-w-0',
                 isActive
-                  ? 'bg-primary text-primary-foreground'
-                  : 'text-gray-700 hover:bg-gray-100'
+                  ? 'bg-blue-50 text-blue-700 border border-blue-200'
+                  : 'text-gray-700 hover:bg-gray-50 border border-transparent'
               )}
               title={item.label}
             >
-              <span className="text-lg leading-none flex-shrink-0">{item.icon}</span>
-              <span className="truncate min-w-0">{item.label}</span>
+              <span className="text-base leading-none flex-shrink-0 opacity-80">{item.icon || '•'}</span>
+              <span className="truncate min-w-0 font-medium">{item.label}</span>
             </NavLink>
           )
         })}
       </nav>
 
-      {/* サイドバーの下部に境界線を追加 */}
-      <div className="border-t border-border px-4 py-3 text-xs text-gray-500">
-        v0.1.0
+      {/* 下部セクション */}
+      <div className="border-t border-gray-200 bg-gray-50 px-4 py-4 space-y-2">
+        <div className="flex items-center justify-between px-1">
+          <span className="text-xs font-semibold text-gray-600 uppercase tracking-wider">勤怠管理</span>
+          <span className="text-xs font-medium text-gray-400">v0.1.0</span>
+        </div>
+        <div className="h-px bg-gradient-to-r from-gray-200 to-transparent"></div>
       </div>
     </aside>
   )
