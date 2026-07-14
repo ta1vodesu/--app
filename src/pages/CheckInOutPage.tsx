@@ -238,7 +238,7 @@ export const CheckInOutPage: React.FC = () => {
               <p className={`text-2xl font-bold ${
                 isCheckedOut ? 'text-orange-600' : isCheckedIn ? 'text-blue-600' : 'text-gray-600'
               }`}>
-                {isCheckedOut ? '✓ 退勤済み' : isCheckedIn ? '✓ 出勤中' : '✗ 未出勤'}
+                {isCheckedOut ? '退勤済み' : isCheckedIn ? '出勤中' : '未出勤'}
               </p>
               {checkedInTime && (
                 <p className="text-sm text-gray-500 mt-2">出勤時刻: {checkedInTime}</p>
@@ -258,7 +258,7 @@ export const CheckInOutPage: React.FC = () => {
                     : 'bg-blue-600 text-white hover:bg-blue-700'
                 }`}
               >
-                {isLoading ? '処理中...' : '✓ 出勤'}
+                {isLoading ? '処理中...' : '出勤'}
               </button>
               <button
                 onClick={handleCheckOut}
@@ -269,7 +269,7 @@ export const CheckInOutPage: React.FC = () => {
                     : 'bg-orange-600 text-white hover:bg-orange-700'
                 }`}
               >
-                {isLoading ? '処理中...' : '✓ 退勤'}
+                {isLoading ? '処理中...' : '退勤'}
               </button>
             </div>
           </div>

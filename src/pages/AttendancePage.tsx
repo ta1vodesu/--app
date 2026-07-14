@@ -176,7 +176,7 @@ export const AttendancePage: React.FC = () => {
               onClick={() => setFilterType('working')}
               className={filterType === 'working' ? 'bg-blue-600' : ''}
             >
-              ✓ 出勤 ({attendances.filter(a => (a.status || 'working') === 'working').length}件)
+              出勤 ({attendances.filter(a => (a.status || 'working') === 'working').length}件)
             </Button>
             <Button
               variant={filterType === 'absent' ? 'default' : 'outline'}
@@ -184,7 +184,7 @@ export const AttendancePage: React.FC = () => {
               onClick={() => setFilterType('absent')}
               className={filterType === 'absent' ? 'bg-orange-600' : ''}
             >
-              ✗ 欠勤 ({attendances.filter(a => a.status === 'absent').length}件)
+              欠勤 ({attendances.filter(a => a.status === 'absent').length}件)
             </Button>
             <Button
               variant={filterType === 'holiday' ? 'default' : 'outline'}
