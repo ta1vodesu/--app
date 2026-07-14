@@ -263,9 +263,8 @@ export const MonthlyReportPage: React.FC = () => {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold text-green-600">
-                {monthlyStats.totalWorkingDays}
+                {monthlyStats.totalWorkingDays} 日
               </div>
-              <p className="text-xs text-gray-600 mt-1">日</p>
             </CardContent>
           </Card>
 
@@ -308,9 +307,8 @@ export const MonthlyReportPage: React.FC = () => {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold text-red-600">
-                {monthlyStats.absentDays}
+                {monthlyStats.absentDays} 日
               </div>
-              <p className="text-xs text-gray-600 mt-1">日</p>
             </CardContent>
           </Card>
 
@@ -320,9 +318,8 @@ export const MonthlyReportPage: React.FC = () => {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold text-gray-600">
-                {monthlyStats.holidayDays}
+                {monthlyStats.holidayDays} 日
               </div>
-              <p className="text-xs text-gray-600 mt-1">日</p>
             </CardContent>
           </Card>
         </div>

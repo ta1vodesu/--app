@@ -150,10 +150,20 @@ export const convertAttendanceToDailyReport = (attendanceData: any[]): DailyRepo
 }
 
 const formatMinutesToTime = (minutes: number): string => {
-  if (minutes === 0) return '0h00m'
+  if (minutes === 0) return '-'
   const hours = Math.floor(minutes / 60)
   const mins = minutes % 60
-  return `${hours}h${mins.toString().padStart(2, '0')}m`
+
+  // 時間と分の両方がある場合
+  if (hours > 0 && mins > 0) {
+    return `${hours}h${mins}m`
+  }
+  // 時間のみ
+  if (hours > 0) {
+    return `${hours}h`
+  }
+  // 分のみ
+  return `${mins}m`
 }
 
 const calculateWorkingHours = (checkInTime: string, checkOutTime: string): number => {
