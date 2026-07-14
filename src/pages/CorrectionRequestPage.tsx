@@ -18,6 +18,8 @@ interface CorrectionRequest {
   created_at: string
 }
 
+type StatusFilter = 'all' | 'pending' | 'approved' | 'rejected'
+
 export const CorrectionRequestPage: React.FC = () => {
   const { userProfile } = useAuth()
   const [myRequests, setMyRequests] = useState<CorrectionRequest[]>([])
@@ -25,12 +27,17 @@ export const CorrectionRequestPage: React.FC = () => {
   const [showNewRequestForm, setShowNewRequestForm] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [availableDates, setAvailableDates] = useState<any[]>([])
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>('all')
   const [newRequest, setNewRequest] = useState({
     attendanceId: '',
     correctedCheckIn: '',
     correctedCheckOut: '',
     reason: '',
   })
+
+  const filteredRequests = myRequests.filter(
+    (req) => statusFilter === 'all' || req.status === statusFilter
+  )
 
   useEffect(() => {
     const fetchData = async () => {
@@ -41,14 +48,22 @@ export const CorrectionRequestPage: React.FC = () => {
           return
         }
 
-        // 修正申請を取得
-        const { data: requests } = await supabase
-          .from('correction_requests')
+        console.log('[CorrectionRequestPage] 修正申請を取得中...')
+
+        // 修正申請を取得（全ステータス）
+        const { data: requests, error: requestsError } = await supabase
+          .from('corrections')
           .select('*')
           .eq('user_id', userProfile.id)
           .order('created_at', { ascending: false })
 
+        if (requestsError) {
+          console.error('[CorrectionRequestPage] 修正申請取得エラー:', requestsError)
+          throw requestsError
+        }
+
         setMyRequests(requests || [])
+        console.log('[CorrectionRequestPage] 修正申請件数:', requests?.length)
 
         // 出勤記録を取得
         const { data: attendances } = await supabase
@@ -67,6 +82,40 @@ export const CorrectionRequestPage: React.FC = () => {
 
     if (userProfile?.id) {
       fetchData()
+
+      // Realtime リスナーを設定
+      const channel = supabase
+        .channel(`corrections:${userProfile.id}`)
+        .on(
+          'postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
+            table: 'corrections',
+            filter: `user_id=eq.${userProfile.id}`,
+          },
+          (payload) => {
+            console.log('[CorrectionRequestPage] リアルタイム更新:', payload)
+
+            if (payload.eventType === 'INSERT') {
+              // 新しい申請が追加された
+              setMyRequests((prev) => [payload.new as CorrectionRequest, ...prev])
+            } else if (payload.eventType === 'UPDATE') {
+              // 既存の申請が更新された（承認・却下）
+              setMyRequests((prev) =>
+                prev.map((req) => (req.id === payload.new.id ? (payload.new as CorrectionRequest) : req))
+              )
+            } else if (payload.eventType === 'DELETE') {
+              // 申請が削除された
+              setMyRequests((prev) => prev.filter((req) => req.id !== payload.old.id))
+            }
+          }
+        )
+        .subscribe()
+
+      return () => {
+        channel.unsubscribe()
+      }
     }
   }, [userProfile?.id])
 
@@ -83,7 +132,7 @@ export const CorrectionRequestPage: React.FC = () => {
       console.log('[CorrectionRequestPage] 修正申請を送信:', newRequest)
 
       const { error: insertError } = await supabase
-        .from('correction_requests')
+        .from('corrections')
         .insert({
           user_id: userProfile.id,
           attendance_id: newRequest.attendanceId,
@@ -102,7 +151,7 @@ export const CorrectionRequestPage: React.FC = () => {
 
       // リロード
       const { data } = await supabase
-        .from('correction_requests')
+        .from('corrections')
         .select('*')
         .eq('user_id', userProfile.id)
         .order('created_at', { ascending: false })
@@ -137,13 +186,52 @@ export const CorrectionRequestPage: React.FC = () => {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold">修正申請</h1>
-        <p className="text-gray-600 mt-1">勤怠情報の修正を申請できます</p>
+        <h1 className="page-title text-lg sm:text-2xl">修正申請</h1>
+        <p className="text-sm text-gray-600 mt-1">勤怠情報の修正を申請できます</p>
       </div>
 
-      <div>
+      {/* ステータスタブ */}
+      <Card>
+        <CardContent className="pt-6">
+          <div className="flex gap-2 flex-wrap">
+            <Button
+              variant={statusFilter === 'all' ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => setStatusFilter('all')}
+            >
+              すべて ({myRequests.length}件)
+            </Button>
+            <Button
+              variant={statusFilter === 'pending' ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => setStatusFilter('pending')}
+              className={statusFilter === 'pending' ? 'bg-yellow-600' : ''}
+            >
+              待機中 ({myRequests.filter((r) => r.status === 'pending').length}件)
+            </Button>
+            <Button
+              variant={statusFilter === 'approved' ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => setStatusFilter('approved')}
+              className={statusFilter === 'approved' ? 'bg-green-600' : ''}
+            >
+              承認済み ({myRequests.filter((r) => r.status === 'approved').length}件)
+            </Button>
+            <Button
+              variant={statusFilter === 'rejected' ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => setStatusFilter('rejected')}
+              className={statusFilter === 'rejected' ? 'bg-red-600' : ''}
+            >
+              却下 ({myRequests.filter((r) => r.status === 'rejected').length}件)
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+
+      <div className="flex gap-2">
         <Button onClick={() => setShowNewRequestForm(!showNewRequestForm)}>
-          {showNewRequestForm ? 'キャンセル' : '新しい申請'}
+          {showNewRequestForm ? 'キャンセル' : '➕ 新しい申請'}
         </Button>
       </div>
 
@@ -229,19 +317,30 @@ export const CorrectionRequestPage: React.FC = () => {
       <Card>
         <CardHeader>
           <CardTitle>my修正申請</CardTitle>
-          <CardDescription>{myRequests.length}件</CardDescription>
+          <CardDescription>
+            {statusFilter === 'all' ? `全${myRequests.length}件` : `${statusFilter}の${filteredRequests.length}件`}
+          </CardDescription>
         </CardHeader>
         <CardContent>
-          {myRequests.length === 0 ? (
-            <p className="text-gray-500 text-center py-8">修正申請がありません</p>
+          {filteredRequests.length === 0 ? (
+            <p className="text-gray-500 text-center py-8">
+              {statusFilter === 'all' ? '修正申請がありません' : `${statusFilter}の修正申請がありません`}
+            </p>
           ) : (
-            <div className="space-y-4">
-              {myRequests.map((request) => (
-                <div key={request.id} className="border p-4 rounded-lg">
-                  <div className="flex justify-between items-start mb-2">
-                    <div>
-                      <p className="font-medium text-sm">対象日付: {request.attendance_id}</p>
-                      <p className="text-sm text-gray-600">理由: {request.reason}</p>
+            <div className="space-y-3">
+              {filteredRequests.map((request) => (
+                <div key={request.id} className="border border-gray-200 rounded-lg p-4 hover:bg-gray-50 transition">
+                  <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-3">
+                    <div className="flex-1">
+                      <p className="font-medium text-sm">修正理由</p>
+                      <p className="text-sm text-gray-700 bg-blue-50 border border-blue-200 rounded p-2 mt-1">
+                        {request.reason}
+                      </p>
+                      <p className="text-xs text-gray-500 mt-2">
+                        申請日: {request.created_at
+                          ? new Date(request.created_at).toLocaleDateString('ja-JP')
+                          : '日時不明'}
+                      </p>
                     </div>
                     <Badge
                       className={
@@ -253,17 +352,12 @@ export const CorrectionRequestPage: React.FC = () => {
                       }
                     >
                       {request.status === 'pending'
-                        ? '待機中'
+                        ? '⏳ 待機中'
                         : request.status === 'approved'
-                        ? '承認済み'
-                        : '却下'}
+                        ? '✅ 承認済み'
+                        : '❌ 却下'}
                     </Badge>
                   </div>
-                  <p className="text-xs text-gray-500 mt-2">
-                    {request.created_at
-                      ? new Date(request.created_at).toLocaleString('ja-JP')
-                      : '日時不明'}
-                  </p>
                 </div>
               ))}
             </div>
