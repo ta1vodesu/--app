@@ -21,7 +21,6 @@ export const CheckInOutPage: React.FC = () => {
       const timeStr = now.toLocaleTimeString('ja-JP', {
         hour: '2-digit',
         minute: '2-digit',
-        second: '2-digit',
         timeZone: 'Asia/Tokyo',
       })
       const dateStr = now.toLocaleDateString('ja-JP', {
@@ -108,7 +107,6 @@ export const CheckInOutPage: React.FC = () => {
       const timeStr = now.toLocaleTimeString('en-US', {
         hour: '2-digit',
         minute: '2-digit',
-        second: '2-digit',
         timeZone: 'Asia/Tokyo',
       })
 
@@ -175,7 +173,6 @@ export const CheckInOutPage: React.FC = () => {
       const timeStr = now.toLocaleTimeString('en-US', {
         hour: '2-digit',
         minute: '2-digit',
-        second: '2-digit',
         timeZone: 'Asia/Tokyo',
       })
 
