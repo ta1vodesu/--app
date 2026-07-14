@@ -6,6 +6,8 @@ import { useAuth } from '@/context/AuthContext'
 import { supabase } from '@/lib/supabase'
 import { Attendance } from '@/types'
 
+type FilterType = 'all' | 'working' | 'absent' | 'holiday'
+
 export const AttendancePage: React.FC = () => {
   const { userProfile } = useAuth()
   const [attendances, setAttendances] = useState<Attendance[]>([])
@@ -13,6 +15,7 @@ export const AttendancePage: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState('')
   const [selectedDate, setSelectedDate] = useState<Attendance | null>(null)
+  const [filterType, setFilterType] = useState<FilterType>('all')
 
   useEffect(() => {
     const fetchAttendances = async () => {
@@ -55,6 +58,19 @@ export const AttendancePage: React.FC = () => {
     }
   }, [userProfile?.id, currentMonth])
 
+  // フィルタ適用
+  const getFilteredAttendances = () => {
+    if (filterType === 'all') {
+      return attendances
+    }
+    return attendances.filter(a => {
+      const normalizedStatus = a.status || 'working'
+      return normalizedStatus === filterType
+    })
+  }
+
+  const filteredAttendances = getFilteredAttendances()
+
   const getDaysInMonth = (date: Date) => {
     return new Date(date.getFullYear(), date.getMonth() + 1, 0).getDate()
   }
@@ -67,58 +83,50 @@ export const AttendancePage: React.FC = () => {
     const dateStr = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), day)
       .toISOString()
       .split('T')[0]
-    return attendances.find((a) => a.date === dateStr)
+    const att = attendances.find((a) => a.date === dateStr)
+    // フィルタに合わせて表示/非表示を切り替え
+    if (filterType === 'all') return att
+    if (att) {
+      const normalizedStatus = att.status || 'working'
+      if (normalizedStatus === filterType) return att
+    }
+    return null
   }
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
+  const getStatusColor = (status: string | null) => {
+    const normalizedStatus = status || 'working'
+    switch (normalizedStatus) {
       case 'working':
         return 'bg-green-100 text-green-800'
       case 'holiday':
         return 'bg-gray-100 text-gray-800'
       case 'absent':
         return 'bg-red-100 text-red-800'
-      case 'pending':
-        return 'bg-yellow-100 text-yellow-800'
-      case 'worked':
-        return 'bg-blue-100 text-blue-800'
       default:
-        return 'bg-white text-gray-800'
+        return 'bg-green-100 text-green-800'
     }
   }
 
-  const getStatusLabel = (status: string) => {
-    switch (status) {
+  const getStatusLabel = (status: string | null) => {
+    const normalizedStatus = status || 'working'
+    switch (normalizedStatus) {
       case 'working':
-        return '出勤中'
+        return '出勤'
       case 'holiday':
         return '休日'
       case 'absent':
         return '欠勤'
-      case 'pending':
-        return '保留中'
-      case 'worked':
-        return '退勤済'
       default:
-        return '-'
+        return '出勤'
     }
   }
 
-  const monthName = currentMonth.toLocaleDateString('ja-JP', { year: 'numeric', month: 'long' })
-  const daysInMonth = getDaysInMonth(currentMonth)
-  const firstDay = getFirstDayOfMonth(currentMonth)
-  const weeks: (number | null)[][] = []
-
-  let currentWeek: (number | null)[] = Array(firstDay).fill(null)
-  for (let day = 1; day <= daysInMonth; day++) {
-    currentWeek.push(day)
-    if (currentWeek.length === 7) {
-      weeks.push(currentWeek)
-      currentWeek = []
-    }
+  const handlePrevMonth = () => {
+    setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() - 1))
   }
-  if (currentWeek.length > 0) {
-    weeks.push(currentWeek.concat(Array(7 - currentWeek.length).fill(null)))
+
+  const handleNextMonth = () => {
+    setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1))
   }
 
   if (isLoading) {
@@ -132,36 +140,14 @@ export const AttendancePage: React.FC = () => {
     )
   }
 
+  const daysInMonth = getDaysInMonth(currentMonth)
+  const firstDay = getFirstDayOfMonth(currentMonth)
+
   return (
     <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
-          <h1 className="page-title text-lg sm:text-2xl">勤怠一覧</h1>
-          <p className="text-sm text-gray-600 mt-1">カレンダー形式で勤怠を管理</p>
-        </div>
-        <div className="flex gap-2 w-full sm:w-auto">
-          <Button
-            variant="outline"
-            className="flex-1 sm:flex-none text-xs sm:text-sm"
-            onClick={() => setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() - 1))}
-          >
-            ← 前月
-          </Button>
-          <Button
-            variant="outline"
-            className="flex-1 sm:flex-none text-xs sm:text-sm"
-            onClick={() => setCurrentMonth(new Date())}
-          >
-            今月
-          </Button>
-          <Button
-            variant="outline"
-            className="flex-1 sm:flex-none text-xs sm:text-sm"
-            onClick={() => setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1))}
-          >
-            翌月 →
-          </Button>
-        </div>
+      <div>
+        <h1 className="text-2xl font-bold">勤怠一覧</h1>
+        <p className="text-gray-600 mt-1">月単位で出勤日時・勤務時間を確認できます</p>
       </div>
 
       {error && (
@@ -170,161 +156,190 @@ export const AttendancePage: React.FC = () => {
         </div>
       )}
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
-        <div className="lg:col-span-2 overflow-x-auto">
-          <Card>
-            <CardHeader>
-              <CardTitle>{monthName}</CardTitle>
-              <CardDescription>日付をクリックして詳細を確認</CardDescription>
-            </CardHeader>
-            <CardContent className="p-2 sm:p-6">
-              <div className="grid grid-cols-7 gap-0.5 sm:gap-1 mb-2">
-                {['日', '月', '火', '水', '木', '金', '土'].map((day) => (
-                  <div key={day} className="text-center font-bold text-xs sm:text-sm py-1 sm:py-2">
-                    {day}
-                  </div>
-                ))}
+      {/* フィルタボタン */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-sm">フィルタ</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="flex gap-2 flex-wrap">
+            <Button
+              variant={filterType === 'all' ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => setFilterType('all')}
+            >
+              すべて ({attendances.length}件)
+            </Button>
+            <Button
+              variant={filterType === 'working' ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => setFilterType('working')}
+              className={filterType === 'working' ? 'bg-green-600' : ''}
+            >
+              出勤 ({attendances.filter(a => a.status === 'working').length}件)
+            </Button>
+            <Button
+              variant={filterType === 'absent' ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => setFilterType('absent')}
+              className={filterType === 'absent' ? 'bg-red-600' : ''}
+            >
+              欠勤 ({attendances.filter(a => a.status === 'absent').length}件)
+            </Button>
+            <Button
+              variant={filterType === 'holiday' ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => setFilterType('holiday')}
+              className={filterType === 'holiday' ? 'bg-gray-600' : ''}
+            >
+              休日 ({attendances.filter(a => a.status === 'holiday').length}件)
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* カレンダー */}
+      <Card>
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle>
+                {currentMonth.getFullYear()}年{currentMonth.getMonth() + 1}月
+              </CardTitle>
+              <CardDescription>
+                {filterType === 'all'
+                  ? 'すべての勤怠記録'
+                  : `${filterType === 'working' ? '出勤' : filterType === 'absent' ? '欠勤' : '休日'}の日のみ表示`}
+              </CardDescription>
+            </div>
+            <div className="flex gap-2">
+              <Button variant="outline" size="sm" onClick={handlePrevMonth}>
+                前月
+              </Button>
+              <Button variant="outline" size="sm" onClick={handleNextMonth}>
+                翌月
+              </Button>
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent className="p-2 sm:p-6 overflow-x-auto">
+          <div className="grid grid-cols-7 gap-0.5 sm:gap-2 min-w-max sm:min-w-0">
+            {['日', '月', '火', '水', '木', '金', '土'].map((day) => (
+              <div key={day} className="text-center font-medium text-xs sm:text-sm text-gray-600 py-1 sm:py-2 w-12 sm:w-auto">
+                {day}
               </div>
+            ))}
+            {Array.from({ length: firstDay }).map((_, i) => (
+              <div key={`empty-${i}`} className="aspect-square w-12 sm:w-auto"></div>
+            ))}
+            {Array.from({ length: daysInMonth }).map((_, i) => {
+              const day = i + 1
+              const att = getAttendanceForDate(day)
+              const isFiltered = att !== null || filterType === 'all'
 
-              <div className="grid grid-cols-7 gap-0.5 sm:gap-1">
-                {weeks.map((week, weekIndex) =>
-                  week.map((day, dayIndex) => {
-                    const attendance = day ? getAttendanceForDate(day) : null
-                    return (
-                      <div
-                        key={`${weekIndex}-${dayIndex}`}
-                        className={`aspect-square p-1 sm:p-2 border rounded cursor-pointer transition text-xs sm:text-sm ${
-                          day
-                            ? attendance
-                              ? `${getStatusColor(attendance.status)} border-current`
-                              : 'bg-white border-gray-200 hover:bg-gray-50'
-                            : 'bg-gray-50 border-gray-200'
-                        }`}
-                        onClick={() => attendance && setSelectedDate(attendance)}
-                      >
-                        {day && (
-                          <div className="font-semibold mb-0.5">{day}</div>
-                        )}
-                        {attendance && (
-                          <div className="truncate line-clamp-1">
-                            {getStatusLabel(attendance.status)}
-                          </div>
-                        )}
-                      </div>
-                    )
-                  })
-                )}
-              </div>
-
-              <div className="mt-4 sm:mt-6 pt-3 sm:pt-4 border-t space-y-2">
-                <p className="text-xs sm:text-sm font-semibold">凡例</p>
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 text-xs">
-                  <div className="flex items-center gap-1.5">
-                    <div className="w-3 h-3 bg-green-100 border border-green-800 rounded flex-shrink-0"></div>
-                    <span>出勤中</span>
-                  </div>
-                  <div className="flex items-center gap-1.5">
-                    <div className="w-3 h-3 bg-blue-100 border border-blue-800 rounded flex-shrink-0"></div>
-                    <span>退勤済</span>
-                  </div>
-                  <div className="flex items-center gap-1.5">
-                    <div className="w-3 h-3 bg-yellow-100 border border-yellow-800 rounded flex-shrink-0"></div>
-                    <span>保留中</span>
-                  </div>
-                  <div className="flex items-center gap-1.5">
-                    <div className="w-3 h-3 bg-gray-100 border border-gray-800 rounded flex-shrink-0"></div>
-                    <span>休日</span>
-                  </div>
-                  <div className="flex items-center gap-1.5">
-                    <div className="w-3 h-3 bg-red-100 border border-red-800 rounded flex-shrink-0"></div>
-                    <span>欠勤</span>
-                  </div>
+              return (
+                <div
+                  key={day}
+                  className={`aspect-square p-1 sm:p-2 rounded border-2 text-center cursor-pointer transition w-12 sm:w-auto ${
+                    att
+                      ? `${getStatusColor(att.status)} border-current`
+                      : 'bg-gray-50 text-gray-400 border-gray-200'
+                  } ${
+                    isFiltered
+                      ? 'opacity-100'
+                      : 'opacity-30'
+                  }`}
+                  onClick={() => att && setSelectedDate(att)}
+                >
+                  <div className="text-xs sm:text-sm font-medium">{day}</div>
+                  {att && (
+                    <div className="text-xs sm:text-xs mt-0.5 sm:mt-1 line-clamp-1">
+                      {att.check_in_time ? att.check_in_time.substring(0, 5) : '—'}
+                    </div>
+                  )}
                 </div>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
+              )
+            })}
+          </div>
+        </CardContent>
+      </Card>
 
-        <div>
-          {selectedDate ? (
-            <Card className="sticky top-4">
-              <CardHeader>
-                <CardTitle className="text-base">勤怠詳細</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div>
-                  <label className="text-sm font-semibold text-gray-600">日付</label>
-                  <p className="text-lg">
-                    {new Date(selectedDate.date).toLocaleDateString('ja-JP', {
-                      year: 'numeric',
-                      month: 'long',
-                      day: 'numeric',
-                      weekday: 'long',
-                    })}
-                  </p>
-                </div>
-
-                <div>
-                  <label className="text-sm font-semibold text-gray-600">ステータス</label>
-                  <Badge className="mt-1">
-                    {getStatusLabel(selectedDate.status)}
-                  </Badge>
-                </div>
-
-                {selectedDate.check_in_time && (
-                  <div>
-                    <label className="text-sm font-semibold text-gray-600">出勤時刻</label>
-                    <p className="text-lg">{selectedDate.check_in_time}</p>
-                  </div>
-                )}
-
-                {selectedDate.check_out_time && (
-                  <div>
-                    <label className="text-sm font-semibold text-gray-600">退勤時刻</label>
-                    <p className="text-lg">{selectedDate.check_out_time}</p>
-                  </div>
-                )}
-
-                {selectedDate.working_hours && (
-                  <div>
-                    <label className="text-sm font-semibold text-gray-600">勤務時間</label>
-                    <p className="text-lg">{selectedDate.working_hours}</p>
-                  </div>
-                )}
-
-                {selectedDate.break_time && (
-                  <div>
-                    <label className="text-sm font-semibold text-gray-600">休憩時間</label>
-                    <p className="text-lg">{selectedDate.break_time}</p>
-                  </div>
-                )}
-
-                {selectedDate.overtime && (
-                  <div>
-                    <label className="text-sm font-semibold text-gray-600">残業時間</label>
-                    <p className="text-lg">{selectedDate.overtime}</p>
-                  </div>
-                )}
-
-                {selectedDate.notes && (
-                  <div>
-                    <label className="text-sm font-semibold text-gray-600">備考</label>
-                    <p className="text-sm">{selectedDate.notes}</p>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
+      {/* 勤怠一覧 */}
+      <Card>
+        <CardHeader>
+          <CardTitle>勤怠詳細</CardTitle>
+          <CardDescription>
+            {filteredAttendances.length}件の記録
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {filteredAttendances.length === 0 ? (
+            <p className="text-gray-500 text-center py-8">該当する勤怠記録がありません</p>
           ) : (
-            <Card>
-              <CardContent className="pt-6">
-                <p className="text-center text-gray-500">
-                  カレンダーから日付を選択して詳細を表示
-                </p>
-              </CardContent>
-            </Card>
+            <div className="space-y-2">
+              {filteredAttendances.map((att) => (
+                <div
+                  key={att.id}
+                  className="border rounded-lg p-4 cursor-pointer hover:bg-gray-50 transition"
+                  onClick={() => setSelectedDate(att)}
+                >
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="font-medium">{att.date}</p>
+                      <p className="text-sm text-gray-600">
+                        出勤: {att.check_in_time || '—'} / 退勤: {att.check_out_time || '—'}
+                      </p>
+                    </div>
+                    <Badge className={getStatusColor(att.status)}>
+                      {getStatusLabel(att.status)}
+                    </Badge>
+                  </div>
+                </div>
+              ))}
+            </div>
           )}
-        </div>
-      </div>
+        </CardContent>
+      </Card>
+
+      {/* 詳細表示 */}
+      {selectedDate && (
+        <Card>
+          <CardHeader>
+            <CardTitle>{selectedDate.date} の詳細</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-2">
+              <div>
+                <p className="text-sm text-gray-600">ステータス</p>
+                <Badge className={getStatusColor(selectedDate.status)}>
+                  {getStatusLabel(selectedDate.status)}
+                </Badge>
+              </div>
+              <div>
+                <p className="text-sm text-gray-600">出勤時刻</p>
+                <p className="font-medium">{selectedDate.check_in_time || '記録なし'}</p>
+              </div>
+              <div>
+                <p className="text-sm text-gray-600">退勤時刻</p>
+                <p className="font-medium">{selectedDate.check_out_time || '記録なし'}</p>
+              </div>
+              {selectedDate.working_hours && (
+                <div>
+                  <p className="text-sm text-gray-600">勤務時間</p>
+                  <p className="font-medium">{selectedDate.working_hours}時間</p>
+                </div>
+              )}
+            </div>
+            <Button
+              variant="outline"
+              className="mt-4 w-full"
+              onClick={() => setSelectedDate(null)}
+            >
+              閉じる
+            </Button>
+          </CardContent>
+        </Card>
+      )}
     </div>
   )
 }
