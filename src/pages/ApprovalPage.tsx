@@ -228,7 +228,7 @@ export const ApprovalPage: React.FC = () => {
 
                       <div>
                         <p className="text-xs sm:text-sm text-gray-600 font-medium">修正理由</p>
-                        <p className="text-sm bg-blue-50 border border-blue-200 rounded p-2">
+                        <p className="text-sm">
                           {approval.reason}
                         </p>
                       </div>
