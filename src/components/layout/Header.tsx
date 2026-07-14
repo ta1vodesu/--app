@@ -21,9 +21,9 @@ export const Header: React.FC<HeaderProps> = ({ onMenuToggle }) => {
   const handleLogout = async () => {
     try {
       await logout()
+    } finally {
+      // ローカルの認証状態はクリア済みのため、通信失敗時もログイン画面へ移動する
       navigate('/login')
-    } catch (error) {
-      console.error('Logout failed:', error)
     }
   }
 

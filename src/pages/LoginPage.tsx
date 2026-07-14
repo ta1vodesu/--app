@@ -65,8 +65,11 @@ export const LoginPage: React.FC = () => {
       // 認証状態が変わると GuestRoute が元のページへリダイレクトする
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'ログインに失敗しました'
-      console.error('Login error:', err)
-      setError(errorMessage)
+      setError(
+        errorMessage.includes('Invalid login credentials')
+          ? 'メールアドレスまたはパスワードが正しくありません'
+          : errorMessage
+      )
       setIsLoading(false)
     }
   }

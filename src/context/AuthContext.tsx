@@ -52,26 +52,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     lastProfileFetchRef.current.set(userId, now)
 
     try {
+      // maybeSingle: プロフィール未作成でも 406 エラーにならないようにする
       const { data, error } = await supabase
         .from('profiles')
         .select('id, email, name, role, department_id, is_active, created_at, updated_at')
         .eq('id', userId)
-        .single()
+        .maybeSingle()
 
-      // 取得失敗は UI を止めないが、原因追跡のためログは残す
-      if (error) {
-        console.error('[AuthContext]プロフィール取得エラー:', error)
-        return null
-      }
-
-      if (!data) {
+      if (error || !data) {
         return null
       }
 
       setUserProfile(data as UserProfile)
       return data as UserProfile
-    } catch (error) {
-      console.error('[AuthContext]プロフィール取得例外:', error)
+    } catch {
       return null
     } finally {
       profileFetchingRef.current.delete(userId)
@@ -96,8 +90,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         } else {
           setUserProfile(null)
         }
-      } catch (error) {
-        console.error('[AuthContext]認証チェックエラー:', error)
+      } catch {
+        // 認証チェック失敗時は未ログイン扱いにする
       } finally {
         setIsLoading(false)
       }
@@ -125,87 +119,115 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, [])
 
   const login = async (email: string, password: string) => {
-    try {
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      })
-      if (error) throw new Error(error.message)
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+    })
+    if (error) throw new Error(error.message)
 
-      if (data.user?.id) {
-        setUser(data.user)
-        await fetchUserProfile(data.user.id, true)
-      }
-    } catch (error) {
-      console.error('[AuthContext]ログインエラー:', error)
-      throw error
+    if (data.user?.id) {
+      setUser(data.user)
+      await fetchUserProfile(data.user.id, true)
     }
   }
 
   const logout = async () => {
-    try {
-      const { error } = await supabase.auth.signOut()
-      if (error) throw new Error(error.message)
+    const { error } = await supabase.auth.signOut()
 
-      setUser(null)
-      setUserProfile(null)
-      profileFetchingRef.current.clear()
-      lastProfileFetchRef.current.clear()
-    } catch (error) {
-      console.error('[AuthContext]ログアウトエラー:', error)
-      setUser(null)
-      setUserProfile(null)
-      throw error
-    }
+    // 通信に失敗してもローカルの認証状態は必ずクリアする
+    setUser(null)
+    setUserProfile(null)
+    profileFetchingRef.current.clear()
+    lastProfileFetchRef.current.clear()
+
+    if (error) throw new Error(error.message)
   }
 
   const signup = async (email: string, password: string, name?: string) => {
-    try {
-      const { data: authData, error: authError } = await supabase.auth.signUp({
-        email,
-        password,
-      })
+    // 1) 認証ユーザーを作成。既存アカウントなら同じ認証情報でログインを試みて救済する
+    //    （過去にプロフィール作成まで到達せず失敗したアカウント対策）
+    let userId: string | null = null
 
-      if (authError) {
+    const { data: authData, error: authError } = await supabase.auth.signUp({
+      email,
+      password,
+    })
+
+    if (authError) {
+      const message = authError.message.toLowerCase()
+      if (message.includes('already registered') || message.includes('already exists')) {
+        const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
+          email,
+          password,
+        })
+        if (signInError || !signInData.user) {
+          throw new Error('このメールアドレスは既に登録されています')
+        }
+        userId = signInData.user.id
+      } else {
         throw new Error(authError.message)
       }
+    } else {
+      userId = authData.user?.id ?? null
+    }
 
-      if (!authData.user?.id) {
-        throw new Error('ユーザー作成に失敗しました')
-      }
+    if (!userId) {
+      throw new Error('ユーザー作成に失敗しました')
+    }
 
-      const { error: profileError } = await supabase.from('profiles').insert({
-        id: authData.user.id,
-        email: email,
-        name: name || email.split('@')[0],
-        role: UserRole.MEMBER,
-        department_id: null,
-        is_active: true,
-      })
-
-      if (profileError) {
-        console.error('[AuthContext]プロフィール作成エラー:', profileError)
-        throw new Error(`プロフィール作成エラー: ${profileError.message}`)
-      }
-
-      const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      })
-
+    // 2) セッションを確保（signUp がセッションを返さない設定でも動くように）
+    const { data: sessionData } = await supabase.auth.getSession()
+    if (!sessionData.session) {
+      const { error: signInError } = await supabase.auth.signInWithPassword({ email, password })
       if (signInError) {
         // アカウント作成は成功しているため、呼び出し側でログイン画面へ誘導する
-        console.error('[AuthContext]自動ログインエラー:', signInError)
         throw new Error('SIGNUP_AUTOLOGIN_FAILED')
       }
+    }
 
-      if (signInData.user?.id) {
-        setUser(signInData.user)
-        await fetchUserProfile(signInData.user.id, true)
+    // 3) プロフィールが無い場合のみ作成する
+    const { data: existingProfile } = await supabase
+      .from('profiles')
+      .select('id')
+      .eq('id', userId)
+      .maybeSingle()
+
+    if (!existingProfile) {
+      // DB 側の role CHECK 制約の差異に耐えるため、許可される値まで順に試す
+      const roleCandidates = ['employee', UserRole.MEMBER]
+      let profileError: { code?: string } | null = null
+
+      for (const role of roleCandidates) {
+        const { error: insertError } = await supabase.from('profiles').insert({
+          id: userId,
+          email,
+          name: name || email.split('@')[0],
+          role,
+          department_id: null,
+          is_active: true,
+        })
+
+        if (!insertError) {
+          profileError = null
+          break
+        }
+
+        profileError = insertError
+        // CHECK 制約違反（23514）のときだけ次の候補を試す
+        if (insertError.code !== '23514') break
       }
-    } catch (error) {
-      console.error('[AuthContext]サインアップエラー:', error)
-      throw error
+
+      // 並行作成による重複（23505）は成功として扱う
+      if (profileError && profileError.code !== '23505') {
+        throw new Error('プロフィールの作成に失敗しました。もう一度お試しください。')
+      }
+    }
+
+    // 4) 認証状態を反映
+    const { data: userData } = await supabase.auth.getUser()
+    if (userData.user) {
+      setUser(userData.user)
+      await fetchUserProfile(userData.user.id, true)
     }
   }
 

@@ -71,8 +71,6 @@ export const SignupPage: React.FC = () => {
         return
       }
 
-      console.error('Signup error:', err)
-
       let displayError = errorMessage
       if (errorMessage.includes('rate limit')) {
         displayError = '登録回数が多すぎます。少し時間をおいてから再度お試しください。'
