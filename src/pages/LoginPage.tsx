@@ -162,14 +162,12 @@ export const LoginPage: React.FC = () => {
           </CardContent>
         </Card>
 
-        {import.meta.env.DEV && (
-          <div className="mt-6 p-4 bg-blue-50 border border-blue-200 rounded-lg text-sm text-gray-700">
-            <p className="font-medium mb-2">テスト用認証情報:</p>
-            <p>メール: test@example.com</p>
-            <p>パスワード: password123</p>
-            <p className="text-xs text-gray-500 mt-2">※ 開発環境でのみ表示されます</p>
-          </div>
-        )}
+        <div className="mt-6 p-4 bg-blue-50 border border-blue-200 rounded-lg text-sm text-gray-700">
+          <p className="font-medium mb-2">テスト用認証情報:</p>
+          <p>メール: test@example.com</p>
+          <p>パスワード: password123</p>
+          <p className="text-xs text-gray-500 mt-2">※ Supabase が設定されている場合のみ使用可能</p>
+        </div>
       </div>
     </div>
   )
