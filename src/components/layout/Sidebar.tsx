@@ -41,15 +41,6 @@ export const Sidebar: React.FC<SidebarProps> = ({ onClose }) => {
           )
         })}
       </nav>
-
-      {/* 下部セクション */}
-      <div className="border-t border-gray-200 bg-gray-50 px-4 py-4 space-y-2">
-        <div className="flex items-center justify-between px-1">
-          <span className="text-xs font-semibold text-gray-600 uppercase tracking-wider">勤怠管理</span>
-          <span className="text-xs font-medium text-gray-400">v0.1.0</span>
-        </div>
-        <div className="h-px bg-gradient-to-r from-gray-200 to-transparent"></div>
-      </div>
     </aside>
   )
 }
