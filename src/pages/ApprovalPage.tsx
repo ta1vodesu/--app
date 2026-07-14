@@ -129,6 +129,35 @@ export const ApprovalPage: React.FC = () => {
     }
   }
 
+  const handleDelete = async (approval: ApprovalItem) => {
+    if (!isAdmin) {
+      setError('管理者のみが削除できます')
+      return
+    }
+
+    if (!confirm(`${approval.userName} さんの申請を削除しますか？この操作は取り消せません。`)) {
+      return
+    }
+
+    setIsSubmitting(true)
+    setError('')
+    try {
+      const { error: deleteError } = await supabase
+        .from('corrections')
+        .delete()
+        .eq('id', approval.id)
+
+      if (deleteError) throw deleteError
+
+      setAllApprovals((prev) => prev.filter((a) => a.id !== approval.id))
+    } catch (err) {
+      console.error('[ApprovalPage] 削除エラー:', err)
+      setError('削除に失敗しました')
+    } finally {
+      setIsSubmitting(false)
+    }
+  }
+
   const handleReject = async (approval: ApprovalItem) => {
     if (!isAdmin) {
       setError('管理者のみが却下できます')
@@ -175,8 +204,8 @@ export const ApprovalPage: React.FC = () => {
     return (
       <div className="space-y-6 sm:space-y-8">
         <div>
-          <h1 className="page-title text-lg sm:text-2xl">承認待ち</h1>
-          <p className="text-sm text-gray-600 mt-1">修正申請を確認・承認できます</p>
+          <h1 className="page-title text-lg sm:text-2xl">承認管理</h1>
+          <p className="text-sm text-gray-600 mt-1">修正申請の承認・却下・削除を行います</p>
         </div>
         <div className="bg-yellow-50 border border-yellow-200 text-yellow-800 px-4 py-3 rounded-md">
           このページは管理者のみ利用できます
@@ -188,8 +217,8 @@ export const ApprovalPage: React.FC = () => {
   return (
     <div className="space-y-6 sm:space-y-8">
       <div>
-        <h1 className="page-title text-lg sm:text-2xl">承認待ち</h1>
-        <p className="text-sm text-gray-600 mt-1">修正申請を確認・承認できます</p>
+        <h1 className="page-title text-lg sm:text-2xl">承認管理</h1>
+        <p className="text-sm text-gray-600 mt-1">修正申請の承認・却下・削除を行います</p>
       </div>
 
       {error && (
@@ -296,7 +325,14 @@ export const ApprovalPage: React.FC = () => {
                     </div>
 
                     {selectedTab === 'pending' && (
-                      <div className="flex gap-2 w-full sm:w-auto flex-shrink-0">
+                      <div className="flex gap-2 w-full sm:w-auto flex-shrink-0 flex-wrap">
+                        <Button
+                          size="sm"
+                          onClick={() => handleApprove(approval)}
+                          disabled={isSubmitting}
+                        >
+                          承認
+                        </Button>
                         <Button
                           variant="outline"
                           size="sm"
@@ -307,25 +343,38 @@ export const ApprovalPage: React.FC = () => {
                           却下
                         </Button>
                         <Button
+                          variant="outline"
                           size="sm"
-                          onClick={() => handleApprove(approval)}
+                          onClick={() => handleDelete(approval)}
                           disabled={isSubmitting}
+                          className="text-gray-500 hover:text-red-700"
                         >
-                          承認
+                          削除
                         </Button>
                       </div>
                     )}
 
                     {(selectedTab === 'approved' || selectedTab === 'rejected') && (
-                      <Badge
-                        className={
-                          selectedTab === 'approved'
-                            ? 'bg-green-100 text-green-800'
-                            : 'bg-red-100 text-red-800'
-                        }
-                      >
-                        {selectedTab === 'approved' ? '承認済み' : '却下'}
-                      </Badge>
+                      <div className="flex items-center gap-2 flex-shrink-0">
+                        <Badge
+                          className={
+                            selectedTab === 'approved'
+                              ? 'bg-green-100 text-green-800'
+                              : 'bg-red-100 text-red-800'
+                          }
+                        >
+                          {selectedTab === 'approved' ? '承認済み' : '却下'}
+                        </Badge>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleDelete(approval)}
+                          disabled={isSubmitting}
+                          className="text-gray-500 hover:text-red-700"
+                        >
+                          削除
+                        </Button>
+                      </div>
                     )}
                   </div>
                 </div>
