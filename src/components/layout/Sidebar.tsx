@@ -3,7 +3,11 @@ import { NavLink, useLocation } from 'react-router-dom'
 import { cn } from '@/lib/utils'
 import { sidebarNavigationItems } from '@/data/mockData'
 
-export const Sidebar: React.FC = () => {
+interface SidebarProps {
+  onClose?: () => void
+}
+
+export const Sidebar: React.FC<SidebarProps> = ({ onClose }) => {
   const location = useLocation()
 
   return (
@@ -16,6 +20,7 @@ export const Sidebar: React.FC = () => {
             <NavLink
               key={item.path}
               to={item.path}
+              onClick={onClose}
               className={cn(
                 'flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 min-w-0',
                 isActive

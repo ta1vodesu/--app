@@ -1,21 +1,25 @@
-import React from 'react'
+import React, { useState } from 'react'
 import { Outlet } from 'react-router-dom'
 import { Header } from './Header'
 import { Sidebar } from './Sidebar'
 import { BottomNavigation } from './BottomNavigation'
 
 export const AppLayout: React.FC = () => {
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false)
+
   return (
     <div className="h-screen flex flex-col bg-white">
-      <Header />
+      <Header onMenuToggle={() => setIsSidebarOpen(!isSidebarOpen)} />
       <div className="flex flex-1 overflow-hidden">
-        {/* サイドバー: md以上で表示 */}
-        <div className="hidden md:block w-1/3 max-w-xs border-r border-border">
-          <Sidebar />
+        {/* サイドバー: md以上で表示、またはモバイルで開いている場合 */}
+        <div className={`${
+          isSidebarOpen ? 'block' : 'hidden'
+        } md:block w-64 border-r border-gray-200 bg-white overflow-y-auto transition-all duration-300 ease-in-out`}>
+          <Sidebar onClose={() => setIsSidebarOpen(false)} />
         </div>
 
         {/* メインコンテンツ */}
-        <main className="flex-1 overflow-y-auto bg-gray-50 pb-16 md:pb-0">
+        <main className="flex-1 overflow-y-auto bg-gray-50 pb-20 md:pb-0">
           <div className="p-4 sm:p-6 max-w-7xl mx-auto">
             <Outlet />
           </div>
@@ -24,6 +28,14 @@ export const AppLayout: React.FC = () => {
 
       {/* ボトムナビゲーション: md未満で表示 */}
       <BottomNavigation />
+
+      {/* モバイルでサイドバーが開いている場合のオーバーレイ */}
+      {isSidebarOpen && (
+        <div
+          className="fixed inset-0 bg-black/30 md:hidden z-30 transition-opacity"
+          onClick={() => setIsSidebarOpen(false)}
+        />
+      )}
     </div>
   )
 }

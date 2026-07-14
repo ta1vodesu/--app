@@ -10,7 +10,11 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { useAuth } from '@/context/AuthContext'
 
-export const Header: React.FC = () => {
+interface HeaderProps {
+  onMenuToggle?: () => void
+}
+
+export const Header: React.FC<HeaderProps> = ({ onMenuToggle }) => {
   const navigate = useNavigate()
   const { userProfile, logout } = useAuth()
 
@@ -35,6 +39,15 @@ export const Header: React.FC = () => {
     <header className="bg-primary text-primary-foreground border-b border-border sticky top-0 z-40">
       <div className="h-14 sm:h-16 px-3 sm:px-6 flex items-center justify-between gap-2 sm:gap-4">
         <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+          <button
+            onClick={onMenuToggle}
+            className="md:hidden p-2 hover:bg-primary/90 rounded-lg transition text-primary-foreground"
+            title="メニューを切り替え"
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+            </svg>
+          </button>
           <h1 className="text-base sm:text-lg font-bold truncate">勤怠管理</h1>
           <span className="hidden sm:inline text-xs opacity-75 whitespace-nowrap flex-shrink-0">
             CLAUDE研修 Inc.
