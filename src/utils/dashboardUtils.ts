@@ -84,10 +84,18 @@ export const calculateMonthlyStats = (attendanceData: any[]): MonthlyStats => {
   let holidayDays = 0
 
   for (const record of attendanceData) {
-    if (record.status === 'working') {
+    // 'working' または 'worked' は勤務日
+    if (record.status === 'working' || record.status === 'worked') {
       workingDays++
 
-      if (record.working_hours) {
+      // 勤務時間を計算（check_in_time と check_out_time から）
+      if (record.check_in_time && record.check_out_time) {
+        const hours = calculateWorkingHours(record.check_in_time, record.check_out_time)
+        if (hours > 0) {
+          totalWorkingMinutes += Math.round(hours * 60)
+        }
+      } else if (record.working_hours) {
+        // フォールバック：working_hours が設定されている場合
         const hours = parseWorkingHours(record.working_hours)
         if (hours !== null) {
           totalWorkingMinutes += hours
@@ -146,4 +154,18 @@ const formatMinutesToTime = (minutes: number): string => {
   const hours = Math.floor(minutes / 60)
   const mins = minutes % 60
   return `${hours}h${mins.toString().padStart(2, '0')}m`
+}
+
+const calculateWorkingHours = (checkInTime: string, checkOutTime: string): number => {
+  if (!checkInTime || !checkOutTime) return 0
+  try {
+    const [inHour, inMin] = checkInTime.split(':').map(Number)
+    const [outHour, outMin] = checkOutTime.split(':').map(Number)
+    const inMinutes = inHour * 60 + inMin
+    const outMinutes = outHour * 60 + outMin
+    const diff = outMinutes - inMinutes
+    return diff > 0 ? diff / 60 : 0
+  } catch {
+    return 0
+  }
 }
