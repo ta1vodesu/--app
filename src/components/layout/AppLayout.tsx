@@ -2,7 +2,6 @@ import React, { useState } from 'react'
 import { Outlet } from 'react-router-dom'
 import { Header } from './Header'
 import { Sidebar } from './Sidebar'
-import { BottomNavigation } from './BottomNavigation'
 
 export const AppLayout: React.FC = () => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false)
@@ -31,15 +30,12 @@ export const AppLayout: React.FC = () => {
         </div>
 
         {/* メインコンテンツ */}
-        <main className="flex-1 overflow-y-auto bg-gray-50 pb-24 md:pb-0">
+        <main className="flex-1 overflow-y-auto bg-gray-50">
           <div className="px-3 sm:px-4 py-4 sm:py-6 max-w-6xl mx-auto">
             <Outlet />
           </div>
         </main>
       </div>
-
-      {/* ボトムナビゲーション: md未満で表示 */}
-      <BottomNavigation />
     </div>
   )
 }
