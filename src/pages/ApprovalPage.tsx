@@ -28,7 +28,7 @@ export const ApprovalPage: React.FC = () => {
         console.log('[ApprovalPage] 修正申請を取得中...')
 
         const { data, error: fetchError } = await supabase
-          .from('correction_requests')
+          .from('corrections')
           .select('*')
           .eq('status', 'pending')
           .order('created_at', { ascending: false })
@@ -80,8 +80,8 @@ export const ApprovalPage: React.FC = () => {
     setIsSubmitting(true)
     try {
       const { error: updateError } = await supabase
-        .from('correction_requests')
-        .update({ status: 'approved' })
+        .from('corrections')
+        .update({ status: 'approved', approver_id: userProfile?.id })
         .eq('id', requestId)
 
       if (updateError) throw updateError
@@ -105,8 +105,8 @@ export const ApprovalPage: React.FC = () => {
     setIsSubmitting(true)
     try {
       const { error: updateError } = await supabase
-        .from('correction_requests')
-        .update({ status: 'rejected' })
+        .from('corrections')
+        .update({ status: 'rejected', approver_id: userProfile?.id })
         .eq('id', requestId)
 
       if (updateError) throw updateError
