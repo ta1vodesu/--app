@@ -11,7 +11,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ onClose }) => {
   const location = useLocation()
 
   return (
-    <aside className="w-64 bg-white border-r border-gray-200 h-[calc(100vh-3.5rem)] sm:h-[calc(100vh-4rem)] overflow-y-auto sticky top-14 sm:top-16 flex flex-col shadow-sm">
+    <aside className="w-64 h-full bg-white border-r border-gray-200 overflow-y-auto flex flex-col shadow-sm">
       {/* メニュー部分 */}
       <nav className="flex-1 px-3 py-4 space-y-1">
         {sidebarNavigationItems.map((item) => {
