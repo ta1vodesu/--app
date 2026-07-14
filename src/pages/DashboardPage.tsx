@@ -124,12 +124,25 @@ export const DashboardPage: React.FC = () => {
           const workingHours = monthlyData
             .filter(d => d.check_in_time && d.check_out_time)
             .map(d => calculateWorkingHours(d.check_in_time, d.check_out_time))
-          
-          const avgHours = workingHours.length > 0 
-            ? workingHours.reduce((a, b) => a + b, 0) / workingHours.length 
+
+          const avgHours = workingHours.length > 0
+            ? workingHours.reduce((a, b) => a + b, 0) / workingHours.length
             : 0
-          const hours = Math.floor(avgHours)
-          const minutes = Math.round((avgHours - hours) * 60)
+          const totalMinutes = Math.round(avgHours * 60)
+          const hours = Math.floor(totalMinutes / 60)
+          const minutes = totalMinutes % 60
+
+          // 簡素化されたフォーマット
+          let formattedHours: string
+          if (hours > 0 && minutes > 0) {
+            formattedHours = `${hours}h${minutes}m`
+          } else if (hours > 0) {
+            formattedHours = `${hours}h`
+          } else if (minutes > 0) {
+            formattedHours = `${minutes}m`
+          } else {
+            formattedHours = '-'
+          }
 
           // このユーザーの承認待ち件数
           const { count: pendingCount } = await supabase
@@ -140,7 +153,7 @@ export const DashboardPage: React.FC = () => {
 
           setKpi({
             attendanceRate,
-            averageWorkingHours: `${hours}h${String(minutes).padStart(2, '0')}m`,
+            averageWorkingHours: formattedHours,
             pendingApprovals: pendingCount || 0,
             overtimeHours: 0,
           })
@@ -148,7 +161,7 @@ export const DashboardPage: React.FC = () => {
           // データがない場合は0を表示
           setKpi({
             attendanceRate: 0,
-            averageWorkingHours: '0h00m',
+            averageWorkingHours: '-',
             pendingApprovals: 0,
             overtimeHours: 0,
           })
