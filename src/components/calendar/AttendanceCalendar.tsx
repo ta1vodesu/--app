@@ -132,11 +132,11 @@ export const AttendanceCalendarComponent: React.FC = () => {
   const getStatusColor = (status: string | null) => {
     switch (status) {
       case 'working':
-        return 'bg-green-100 border-green-300'
-      case 'leave':
         return 'bg-blue-100 border-blue-300'
+      case 'leave':
+        return 'bg-purple-100 border-purple-300'
       case 'holiday':
-        return 'bg-red-100 border-red-300'
+        return 'bg-orange-100 border-orange-300'
       default:
         return 'bg-white'
     }
@@ -145,11 +145,11 @@ export const AttendanceCalendarComponent: React.FC = () => {
   const getStatusTextColor = (status: string | null) => {
     switch (status) {
       case 'working':
-        return 'text-green-700'
-      case 'leave':
         return 'text-blue-700'
+      case 'leave':
+        return 'text-purple-700'
       case 'holiday':
-        return 'text-red-700'
+        return 'text-orange-700'
       default:
         return 'text-gray-900'
     }
@@ -186,16 +186,16 @@ export const AttendanceCalendarComponent: React.FC = () => {
       {/* 凡例 */}
       <div className="flex flex-wrap gap-4 text-sm">
         <div className="flex items-center gap-2">
-          <div className="w-4 h-4 bg-green-100 border border-green-300 rounded"></div>
-          <span className="text-gray-700">出勤</span>
-        </div>
-        <div className="flex items-center gap-2">
           <div className="w-4 h-4 bg-blue-100 border border-blue-300 rounded"></div>
-          <span className="text-gray-700">有給</span>
+          <span className="text-gray-700">✓ 出勤</span>
         </div>
         <div className="flex items-center gap-2">
-          <div className="w-4 h-4 bg-red-100 border border-red-300 rounded"></div>
-          <span className="text-gray-700">休み</span>
+          <div className="w-4 h-4 bg-purple-100 border border-purple-300 rounded"></div>
+          <span className="text-gray-700">✓ 有給</span>
+        </div>
+        <div className="flex items-center gap-2">
+          <div className="w-4 h-4 bg-orange-100 border border-orange-300 rounded"></div>
+          <span className="text-gray-700">✓ 休み</span>
         </div>
       </div>
 

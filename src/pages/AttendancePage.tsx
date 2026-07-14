@@ -97,13 +97,13 @@ export const AttendancePage: React.FC = () => {
     const normalizedStatus = status || 'working'
     switch (normalizedStatus) {
       case 'working':
-        return 'bg-green-100 text-green-800'
+        return 'bg-blue-100 text-blue-800'
       case 'holiday':
         return 'bg-gray-100 text-gray-800'
       case 'absent':
-        return 'bg-red-100 text-red-800'
+        return 'bg-orange-100 text-orange-800'
       default:
-        return 'bg-green-100 text-green-800'
+        return 'bg-blue-100 text-blue-800'
     }
   }
 
@@ -174,17 +174,17 @@ export const AttendancePage: React.FC = () => {
               variant={filterType === 'working' ? 'default' : 'outline'}
               size="sm"
               onClick={() => setFilterType('working')}
-              className={filterType === 'working' ? 'bg-green-600' : ''}
+              className={filterType === 'working' ? 'bg-blue-600' : ''}
             >
-              出勤 ({attendances.filter(a => (a.status || 'working') === 'working').length}件)
+              ✓ 出勤 ({attendances.filter(a => (a.status || 'working') === 'working').length}件)
             </Button>
             <Button
               variant={filterType === 'absent' ? 'default' : 'outline'}
               size="sm"
               onClick={() => setFilterType('absent')}
-              className={filterType === 'absent' ? 'bg-red-600' : ''}
+              className={filterType === 'absent' ? 'bg-orange-600' : ''}
             >
-              欠勤 ({attendances.filter(a => a.status === 'absent').length}件)
+              ✗ 欠勤 ({attendances.filter(a => a.status === 'absent').length}件)
             </Button>
             <Button
               variant={filterType === 'holiday' ? 'default' : 'outline'}
