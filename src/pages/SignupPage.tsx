@@ -6,6 +6,9 @@ import { useAuth } from '@/context/AuthContext'
 import { isSupabaseConfigured } from '@/lib/supabase'
 import { SetupRequiredPage } from './SetupRequiredPage'
 
+// 管理者登録用のPIN（環境変数で上書き可能）
+const ADMIN_PIN = import.meta.env.VITE_ADMIN_PIN || '0000'
+
 export const SignupPage: React.FC = () => {
   const navigate = useNavigate()
   const { signup } = useAuth()
@@ -16,8 +19,30 @@ export const SignupPage: React.FC = () => {
     confirmPassword: '',
     role: 'employee',
   })
+  const [wantsAdmin, setWantsAdmin] = useState(false)
+  const [adminPin, setAdminPin] = useState('')
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState('')
+
+  const isAdminVerified = wantsAdmin && adminPin === ADMIN_PIN
+
+  const handleSelectEmployee = () => {
+    setWantsAdmin(false)
+    setAdminPin('')
+    setFormData((prev) => ({ ...prev, role: 'employee' }))
+  }
+
+  const handleSelectAdmin = () => {
+    // PIN が確認されるまでは管理者ロールを確定しない
+    setWantsAdmin(true)
+    setFormData((prev) => ({ ...prev, role: 'employee' }))
+  }
+
+  const handlePinChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const pin = e.target.value
+    setAdminPin(pin)
+    setFormData((prev) => ({ ...prev, role: pin === ADMIN_PIN ? 'admin' : 'employee' }))
+  }
 
   if (!isSupabaseConfigured()) {
     return <SetupRequiredPage />
@@ -54,6 +79,13 @@ export const SignupPage: React.FC = () => {
 
       if (formData.password !== formData.confirmPassword) {
         setError('パスワードが一致しません')
+        setIsLoading(false)
+        return
+      }
+
+      // 管理者を選択している場合は PIN の確認が必須
+      if (wantsAdmin && !isAdminVerified) {
+        setError('管理者PINが正しくありません')
         setIsLoading(false)
         return
       }
@@ -175,8 +207,8 @@ export const SignupPage: React.FC = () => {
                       type="radio"
                       name="role"
                       value="employee"
-                      checked={formData.role === 'employee'}
-                      onChange={handleChange}
+                      checked={!wantsAdmin}
+                      onChange={handleSelectEmployee}
                       className="mr-2"
                     />
                     <span className="text-sm text-gray-700">従業員</span>
@@ -186,13 +218,39 @@ export const SignupPage: React.FC = () => {
                       type="radio"
                       name="role"
                       value="admin"
-                      checked={formData.role === 'admin'}
-                      onChange={handleChange}
+                      checked={wantsAdmin}
+                      onChange={handleSelectAdmin}
                       className="mr-2"
                     />
                     <span className="text-sm text-gray-700">管理者</span>
                   </label>
                 </div>
+
+                {/* 管理者選択時はPINの確認が必要 */}
+                {wantsAdmin && (
+                  <div className="mt-3 p-3 bg-blue-50 border border-blue-200 rounded-md space-y-2">
+                    <label className="block text-sm font-medium text-gray-700">
+                      管理者PIN
+                    </label>
+                    <input
+                      type="password"
+                      inputMode="numeric"
+                      value={adminPin}
+                      onChange={handlePinChange}
+                      placeholder="PINを入力"
+                      className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
+                    />
+                    {isAdminVerified ? (
+                      <p className="text-xs text-green-700 font-medium">
+                        PINを確認しました。管理者として登録されます
+                      </p>
+                    ) : (
+                      <p className="text-xs text-gray-500">
+                        管理者として登録するにはPINの入力が必要です
+                      </p>
+                    )}
+                  </div>
+                )}
               </div>
 
               <Button
