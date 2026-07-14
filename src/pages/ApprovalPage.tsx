@@ -6,14 +6,19 @@ import { useAuth } from '@/context/AuthContext'
 import { supabase } from '@/lib/supabase'
 import { UserRole } from '@/types'
 
+type StatusTab = 'pending' | 'approved' | 'rejected'
+
 export const ApprovalPage: React.FC = () => {
   const { userProfile } = useAuth()
-  const [approvals, setApprovals] = useState<any[]>([])
+  const [allApprovals, setAllApprovals] = useState<any[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [selectedTab, setSelectedTab] = useState<StatusTab>('pending')
 
   const isAdmin = userProfile?.role === UserRole.ADMIN
+
+  const filteredApprovals = allApprovals.filter((a) => a.status === selectedTab)
 
   useEffect(() => {
     const fetchApprovals = async () => {
@@ -27,10 +32,10 @@ export const ApprovalPage: React.FC = () => {
         console.log('[ApprovalPage] ユーザーロール:', userProfile.role)
         console.log('[ApprovalPage] 修正申請を取得中...')
 
+        // すべてのステータスのデータを取得
         const { data, error: fetchError } = await supabase
           .from('corrections')
           .select('*')
-          .eq('status', 'pending')
           .order('created_at', { ascending: false })
 
         if (fetchError) {
@@ -57,10 +62,11 @@ export const ApprovalPage: React.FC = () => {
           }
         }
 
-        setApprovals(withUserNames)
+        setAllApprovals(withUserNames)
         console.log('[ApprovalPage] 修正申請件数:', withUserNames.length)
       } catch (err) {
         console.error('[ApprovalPage] エラー:', err)
+        setError('修正申請の読み込みに失敗しました')
       } finally {
         setIsLoading(false)
       }
@@ -86,7 +92,9 @@ export const ApprovalPage: React.FC = () => {
 
       if (updateError) throw updateError
 
-      setApprovals((prev) => prev.filter((a) => a.id !== requestId))
+      setAllApprovals((prev) =>
+        prev.map((a) => (a.id === requestId ? { ...a, status: 'approved' } : a))
+      )
       console.log('[ApprovalPage] 承認しました:', requestId)
     } catch (err) {
       console.error('[ApprovalPage] 承認エラー:', err)
@@ -111,7 +119,9 @@ export const ApprovalPage: React.FC = () => {
 
       if (updateError) throw updateError
 
-      setApprovals((prev) => prev.filter((a) => a.id !== requestId))
+      setAllApprovals((prev) =>
+        prev.map((a) => (a.id === requestId ? { ...a, status: 'rejected' } : a))
+      )
       console.log('[ApprovalPage] 却下しました:', requestId)
     } catch (err) {
       console.error('[ApprovalPage] 却下エラー:', err)
@@ -132,6 +142,20 @@ export const ApprovalPage: React.FC = () => {
     )
   }
 
+  if (!isAdmin) {
+    return (
+      <div className="space-y-6 sm:space-y-8">
+        <div>
+          <h1 className="page-title text-lg sm:text-2xl">承認待ち</h1>
+          <p className="text-sm text-gray-600 mt-1">修正申請を確認・承認できます</p>
+        </div>
+        <div className="bg-yellow-50 border border-yellow-200 text-yellow-800 px-4 py-3 rounded-md">
+          ⚠️ 管理者のみが承認・却下できます（表示のみ可能）
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="space-y-6 sm:space-y-8">
       <div>
@@ -139,29 +163,61 @@ export const ApprovalPage: React.FC = () => {
         <p className="text-sm text-gray-600 mt-1">修正申請を確認・承認できます</p>
       </div>
 
-      {!isAdmin && (
-        <div className="bg-yellow-50 border border-yellow-200 text-yellow-800 px-4 py-3 rounded-md">
-          ⚠️ 管理者のみが承認・却下できます（表示のみ可能）
-        </div>
-      )}
-
       {error && (
         <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-md">
           ❌ {error}
         </div>
       )}
 
+      {/* ステータスタブ */}
+      <Card>
+        <CardContent className="pt-6">
+          <div className="flex gap-2 flex-wrap">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setSelectedTab('pending')}
+              className={selectedTab === 'pending' ? 'bg-yellow-100' : ''}
+            >
+              待機中 ({allApprovals.filter((a) => a.status === 'pending').length}件)
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setSelectedTab('approved')}
+              className={selectedTab === 'approved' ? 'bg-green-100' : ''}
+            >
+              承認済み ({allApprovals.filter((a) => a.status === 'approved').length}件)
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setSelectedTab('rejected')}
+              className={selectedTab === 'rejected' ? 'bg-red-100' : ''}
+            >
+              却下 ({allApprovals.filter((a) => a.status === 'rejected').length}件)
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+
       <Card>
         <CardHeader>
-          <CardTitle>保留中の申請</CardTitle>
-          <CardDescription>{approvals.length}件の待機中申請</CardDescription>
+          <CardTitle>修正申請一覧</CardTitle>
+          <CardDescription>
+            {selectedTab === 'pending'
+              ? `待機中の申請 ${filteredApprovals.length}件`
+              : selectedTab === 'approved'
+              ? `承認済みの申請 ${filteredApprovals.length}件`
+              : `却下された申請 ${filteredApprovals.length}件`}
+          </CardDescription>
         </CardHeader>
         <CardContent>
-          {approvals.length === 0 ? (
-            <p className="text-gray-500 text-center py-8">承認待ち申請がありません</p>
+          {filteredApprovals.length === 0 ? (
+            <p className="text-gray-500 text-center py-8">申請がありません</p>
           ) : (
             <div className="space-y-4">
-              {approvals.map((approval) => (
+              {filteredApprovals.map((approval) => (
                 <div key={approval.id} className="border border-gray-200 rounded-lg p-4 hover:bg-gray-50 transition">
                   <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
                     <div className="flex-1 space-y-3">
@@ -206,32 +262,40 @@ export const ApprovalPage: React.FC = () => {
                           </p>
                         </div>
                       )}
+                    </div>
 
-                      <div>
-                        <Badge variant="secondary">待機中</Badge>
+                    {selectedTab === 'pending' && (
+                      <div className="flex gap-2 w-full sm:w-auto flex-shrink-0">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleReject(approval.id)}
+                          disabled={isSubmitting}
+                          className="text-red-600 hover:text-red-700"
+                        >
+                          却下
+                        </Button>
+                        <Button
+                          size="sm"
+                          onClick={() => handleApprove(approval.id)}
+                          disabled={isSubmitting}
+                        >
+                          承認
+                        </Button>
                       </div>
-                    </div>
+                    )}
 
-                    <div className="flex gap-2 w-full sm:w-auto flex-shrink-0">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => handleReject(approval.id)}
-                        disabled={!isAdmin || isSubmitting}
-                        className={isAdmin ? 'text-red-600 hover:text-red-700' : ''}
-                        title={!isAdmin ? '管理者のみが操作できます' : ''}
+                    {(selectedTab === 'approved' || selectedTab === 'rejected') && (
+                      <Badge
+                        className={
+                          selectedTab === 'approved'
+                            ? 'bg-green-100 text-green-800'
+                            : 'bg-red-100 text-red-800'
+                        }
                       >
-                        却下
-                      </Button>
-                      <Button
-                        size="sm"
-                        onClick={() => handleApprove(approval.id)}
-                        disabled={!isAdmin || isSubmitting}
-                        title={!isAdmin ? '管理者のみが操作できます' : ''}
-                      >
-                        {isSubmitting ? '処理中...' : '承認'}
-                      </Button>
-                    </div>
+                        {selectedTab === 'approved' ? '✅ 承認済み' : '❌ 却下'}
+                      </Badge>
+                    )}
                   </div>
                 </div>
               ))}
