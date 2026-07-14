@@ -19,8 +19,8 @@ export const AppLayout: React.FC = () => {
         </div>
 
         {/* メインコンテンツ */}
-        <main className="flex-1 overflow-y-auto bg-gray-50 pb-20 md:pb-0">
-          <div className="p-4 sm:p-6 max-w-7xl mx-auto">
+        <main className="flex-1 overflow-y-auto bg-gray-50 pb-24 md:pb-0">
+          <div className="px-3 sm:px-4 py-4 sm:py-6 max-w-6xl mx-auto">
             <Outlet />
           </div>
         </main>
