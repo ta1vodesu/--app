@@ -18,8 +18,6 @@ interface CorrectionRequest {
   created_at: string
 }
 
-type StatusFilter = 'all' | 'pending' | 'approved' | 'rejected'
-
 export const CorrectionRequestPage: React.FC = () => {
   const { userProfile } = useAuth()
   const [myRequests, setMyRequests] = useState<CorrectionRequest[]>([])
@@ -27,7 +25,8 @@ export const CorrectionRequestPage: React.FC = () => {
   const [showNewRequestForm, setShowNewRequestForm] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [availableDates, setAvailableDates] = useState<any[]>([])
-  const [statusFilter, setStatusFilter] = useState<StatusFilter>('all')
+  const [editingId, setEditingId] = useState<string | null>(null)
+  const [editingRequest, setEditingRequest] = useState<Partial<CorrectionRequest>>({})
   const [newRequest, setNewRequest] = useState({
     attendanceId: '',
     correctedCheckIn: '',
@@ -35,9 +34,8 @@ export const CorrectionRequestPage: React.FC = () => {
     reason: '',
   })
 
-  const filteredRequests = myRequests.filter(
-    (req) => statusFilter === 'all' || req.status === statusFilter
-  )
+  const pendingRequests = myRequests.filter((req) => req.status === 'pending')
+  const completedRequests = myRequests.filter((req) => req.status !== 'pending')
 
   useEffect(() => {
     const fetchData = async () => {
@@ -163,6 +161,66 @@ export const CorrectionRequestPage: React.FC = () => {
     }
   }
 
+  const handleEdit = (request: CorrectionRequest) => {
+    setEditingId(request.id)
+    setEditingRequest({
+      corrected_check_in: request.corrected_check_in,
+      corrected_check_out: request.corrected_check_out,
+      reason: request.reason,
+    })
+  }
+
+  const handleSaveEdit = async () => {
+    if (!editingId) return
+
+    setIsSubmitting(true)
+
+    try {
+      const { error: updateError } = await supabase
+        .from('corrections')
+        .update({
+          corrected_check_in: editingRequest.corrected_check_in || null,
+          corrected_check_out: editingRequest.corrected_check_out || null,
+          reason: editingRequest.reason,
+        })
+        .eq('id', editingId)
+
+      if (updateError) throw updateError
+
+      // リロード
+      const { data } = await supabase
+        .from('corrections')
+        .select('*')
+        .eq('user_id', userProfile?.id)
+        .order('created_at', { ascending: false })
+
+      setMyRequests(data || [])
+      setEditingId(null)
+      setEditingRequest({})
+    } catch (err) {
+      console.error('[CorrectionRequestPage] 編集エラー:', err)
+    } finally {
+      setIsSubmitting(false)
+    }
+  }
+
+  const handleDelete = async (requestId: string) => {
+    if (!confirm('この修正申請を削除しますか？')) return
+
+    try {
+      const { error: deleteError } = await supabase
+        .from('corrections')
+        .delete()
+        .eq('id', requestId)
+
+      if (deleteError) throw deleteError
+
+      setMyRequests((prev) => prev.filter((req) => req.id !== requestId))
+    } catch (err) {
+      console.error('[CorrectionRequestPage] 削除エラー:', err)
+    }
+  }
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-96">
@@ -181,44 +239,6 @@ export const CorrectionRequestPage: React.FC = () => {
         <p className="text-sm text-gray-600 mt-1">勤怠情報の修正を申請できます</p>
       </div>
 
-      {/* ステータスタブ */}
-      <Card>
-        <CardContent className="pt-6">
-          <div className="flex gap-2 flex-wrap">
-            <Button
-              variant={statusFilter === 'all' ? 'default' : 'outline'}
-              size="sm"
-              onClick={() => setStatusFilter('all')}
-            >
-              すべて ({myRequests.length}件)
-            </Button>
-            <Button
-              variant={statusFilter === 'pending' ? 'default' : 'outline'}
-              size="sm"
-              onClick={() => setStatusFilter('pending')}
-              className={statusFilter === 'pending' ? 'bg-yellow-600' : ''}
-            >
-              待機中 ({myRequests.filter((r) => r.status === 'pending').length}件)
-            </Button>
-            <Button
-              variant={statusFilter === 'approved' ? 'default' : 'outline'}
-              size="sm"
-              onClick={() => setStatusFilter('approved')}
-              className={statusFilter === 'approved' ? 'bg-green-600' : ''}
-            >
-              承認済み ({myRequests.filter((r) => r.status === 'approved').length}件)
-            </Button>
-            <Button
-              variant={statusFilter === 'rejected' ? 'default' : 'outline'}
-              size="sm"
-              onClick={() => setStatusFilter('rejected')}
-              className={statusFilter === 'rejected' ? 'bg-red-600' : ''}
-            >
-              却下 ({myRequests.filter((r) => r.status === 'rejected').length}件)
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
 
       <div className="flex gap-2">
         <Button onClick={() => setShowNewRequestForm(!showNewRequestForm)}>
@@ -305,26 +325,136 @@ export const CorrectionRequestPage: React.FC = () => {
         </Card>
       )}
 
+      {/* 待機中の修正申請 */}
       <Card>
         <CardHeader>
-          <CardTitle>my修正申請</CardTitle>
-          <CardDescription>
-            {statusFilter === 'all' ? `全${myRequests.length}件` : `${statusFilter}の${filteredRequests.length}件`}
-          </CardDescription>
+          <CardTitle>待機中の修正申請</CardTitle>
+          <CardDescription>{pendingRequests.length}件</CardDescription>
         </CardHeader>
         <CardContent>
-          {filteredRequests.length === 0 ? (
-            <p className="text-gray-500 text-center py-8">
-              {statusFilter === 'all' ? '修正申請がありません' : `${statusFilter}の修正申請がありません`}
-            </p>
+          {pendingRequests.length === 0 ? (
+            <p className="text-gray-500 text-center py-8">待機中の修正申請がありません</p>
           ) : (
             <div className="space-y-3">
-              {filteredRequests.map((request) => (
-                <div key={request.id} className="border border-gray-200 rounded-lg p-4 hover:bg-gray-50 transition">
+              {pendingRequests.map((request) => (
+                <div key={request.id} className="border border-yellow-200 bg-yellow-50 rounded-lg p-4">
+                  {editingId === request.id ? (
+                    <div className="space-y-3">
+                      <div>
+                        <label className="text-sm font-medium">修正理由</label>
+                        <textarea
+                          value={editingRequest.reason || ''}
+                          onChange={(e) =>
+                            setEditingRequest({ ...editingRequest, reason: e.target.value })
+                          }
+                          className="w-full p-2 border rounded mt-1"
+                          rows={3}
+                        />
+                      </div>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <label className="text-sm font-medium">修正後 出勤時刻</label>
+                          <input
+                            type="time"
+                            value={editingRequest.corrected_check_in || ''}
+                            onChange={(e) =>
+                              setEditingRequest({
+                                ...editingRequest,
+                                corrected_check_in: e.target.value,
+                              })
+                            }
+                            className="w-full p-2 border rounded mt-1"
+                          />
+                        </div>
+                        <div>
+                          <label className="text-sm font-medium">修正後 退勤時刻</label>
+                          <input
+                            type="time"
+                            value={editingRequest.corrected_check_out || ''}
+                            onChange={(e) =>
+                              setEditingRequest({
+                                ...editingRequest,
+                                corrected_check_out: e.target.value,
+                              })
+                            }
+                            className="w-full p-2 border rounded mt-1"
+                          />
+                        </div>
+                      </div>
+                      <div className="flex gap-2">
+                        <Button size="sm" onClick={handleSaveEdit} disabled={isSubmitting}>
+                          {isSubmitting ? '保存中...' : '保存'}
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => setEditingId(null)}
+                          disabled={isSubmitting}
+                        >
+                          キャンセル
+                        </Button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="space-y-3">
+                      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-3">
+                        <div className="flex-1">
+                          <p className="font-medium text-sm">修正理由</p>
+                          <p className="text-sm text-gray-700 bg-white border border-yellow-300 rounded p-2 mt-1">
+                            {request.reason}
+                          </p>
+                          <p className="text-xs text-gray-500 mt-2">
+                            申請日: {request.created_at
+                              ? new Date(request.created_at).toLocaleDateString('ja-JP')
+                              : '日時不明'}
+                          </p>
+                        </div>
+                        <Badge className="bg-yellow-100 text-yellow-800">待機中</Badge>
+                      </div>
+                      <div className="flex gap-2">
+                        <Button size="sm" onClick={() => handleEdit(request)}>
+                          編集
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="text-red-600 hover:text-red-700"
+                          onClick={() => handleDelete(request.id)}
+                        >
+                          削除
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* 完了した修正申請 */}
+      {completedRequests.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle>完了した修正申請</CardTitle>
+            <CardDescription>{completedRequests.length}件</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-3">
+              {completedRequests.map((request) => (
+                <div
+                  key={request.id}
+                  className={`border rounded-lg p-4 ${
+                    request.status === 'approved'
+                      ? 'border-green-200 bg-green-50'
+                      : 'border-red-200 bg-red-50'
+                  }`}
+                >
                   <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-3">
                     <div className="flex-1">
                       <p className="font-medium text-sm">修正理由</p>
-                      <p className="text-sm text-gray-700 bg-blue-50 border border-blue-200 rounded p-2 mt-1">
+                      <p className="text-sm text-gray-700 bg-white rounded p-2 mt-1">
                         {request.reason}
                       </p>
                       <p className="text-xs text-gray-500 mt-2">
@@ -335,26 +465,20 @@ export const CorrectionRequestPage: React.FC = () => {
                     </div>
                     <Badge
                       className={
-                        request.status === 'pending'
-                          ? 'bg-yellow-100 text-yellow-800'
-                          : request.status === 'approved'
+                        request.status === 'approved'
                           ? 'bg-green-100 text-green-800'
                           : 'bg-red-100 text-red-800'
                       }
                     >
-                      {request.status === 'pending'
-                        ? '待機中'
-                        : request.status === 'approved'
-                        ? '承認済み'
-                        : '却下'}
+                      {request.status === 'approved' ? '承認済み' : '却下'}
                     </Badge>
                   </div>
                 </div>
               ))}
             </div>
-          )}
-        </CardContent>
-      </Card>
+          </CardContent>
+        </Card>
+      )}
     </div>
   )
 }
