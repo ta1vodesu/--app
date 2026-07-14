@@ -168,7 +168,7 @@ export const AccountSettingsPage: React.FC = () => {
         <CardContent>
           {successMessage && (
             <div className="bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-md text-sm mb-4">
-              ✅ {successMessage}
+{successMessage}
             </div>
           )}
 

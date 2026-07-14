@@ -188,7 +188,7 @@ export const MonthlyReportPage: React.FC = () => {
 
       {error && (
         <div className="bg-yellow-50 border border-yellow-200 text-yellow-700 px-4 py-3 rounded-md">
-          <p className="font-medium">⚠️ エラー</p>
+          <p className="font-medium">エラー</p>
           <p className="text-sm mt-1">{error}</p>
         </div>
       )}
@@ -204,7 +204,7 @@ export const MonthlyReportPage: React.FC = () => {
             variant="outline"
             className="w-full sm:w-auto"
           >
-            🔍 詳細フィルター
+詳細フィルター
           </Button>
         )}
 
@@ -342,7 +342,7 @@ export const MonthlyReportPage: React.FC = () => {
               </CardDescription>
             </div>
             <Button onClick={handleExport} className="w-full sm:w-auto" disabled={isLoading || dailyReports.length === 0}>
-              📥 CSVエクスポート
+CSVエクスポート
             </Button>
           </div>
         </CardHeader>
@@ -351,7 +351,7 @@ export const MonthlyReportPage: React.FC = () => {
             <Spinner label="レポートを読み込み中..." />
           ) : dailyReports.length === 0 ? (
             <EmptyState
-              icon="📊"
+              icon=""
               title="データがありません"
               description="選択した期間の勤怠データがありません。"
             />

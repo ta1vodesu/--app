@@ -138,7 +138,7 @@ export const CheckInOutPage: React.FC = () => {
 
       setIsCheckedIn(true)
       setCheckedInTime(timeStr)
-      setMessage(`✅ 出勤しました (${timeStr})`)
+      setMessage(`出勤しました (${timeStr})`)
       setTimeout(() => setMessage(null), 3000)
     } catch (err) {
       console.error('[CheckInOutPage] 出勤失敗:', err)
@@ -192,7 +192,7 @@ export const CheckInOutPage: React.FC = () => {
 
       setIsCheckedOut(true)
       setCheckedOutTime(timeStr)
-      setMessage(`✅ 退勤しました (${timeStr})`)
+      setMessage(`退勤しました (${timeStr})`)
       setTimeout(() => setMessage(null), 3000)
     } catch (err) {
       console.error('[CheckInOutPage] 退勤失敗:', err)
@@ -211,7 +211,7 @@ export const CheckInOutPage: React.FC = () => {
 
       {error && (
         <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-md">
-          ❌ {error}
+{error}
         </div>
       )}
 

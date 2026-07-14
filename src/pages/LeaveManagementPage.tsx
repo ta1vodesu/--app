@@ -118,7 +118,7 @@ export const LeaveManagementPage: React.FC = () => {
       {submitted && (
         <div className="bg-green-50 border border-green-200 rounded-lg p-4">
           <p className="text-green-800 font-medium">
-            ✅ 休暇申請を送信しました。
+休暇申請を送信しました。
           </p>
         </div>
       )}

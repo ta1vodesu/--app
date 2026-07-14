@@ -98,7 +98,7 @@ export const SetupRequiredPage: React.FC = () => {
 
             {/* 注意 */}
             <div className="bg-red-50 border border-red-200 rounded p-4 mt-6">
-              <p className="text-sm text-red-700 font-medium">⚠️ 重要な注意</p>
+              <p className="text-sm text-red-700 font-medium">重要な注意</p>
               <ul className="text-sm text-red-600 mt-2 space-y-1 ml-4">
                 <li>• .env.local ファイルは Git にコミットしないでください</li>
                 <li>• API キーは秘密情報です。絶対に他人と共有しないでください</li>

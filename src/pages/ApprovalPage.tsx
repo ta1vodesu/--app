@@ -29,9 +29,6 @@ export const ApprovalPage: React.FC = () => {
           return
         }
 
-        console.log('[ApprovalPage] ユーザーロール:', userProfile.role)
-        console.log('[ApprovalPage] 修正申請を取得中...')
-
         // すべてのステータスのデータを取得
         const { data, error: fetchError } = await supabase
           .from('corrections')
@@ -42,8 +39,6 @@ export const ApprovalPage: React.FC = () => {
           console.error('[ApprovalPage] クエリエラー:', fetchError)
           throw fetchError
         }
-
-        console.log('[ApprovalPage] 修正申請データ:', data)
 
         // ユーザー情報を取得
         const withUserNames: any[] = []
@@ -63,7 +58,6 @@ export const ApprovalPage: React.FC = () => {
         }
 
         setAllApprovals(withUserNames)
-        console.log('[ApprovalPage] 修正申請件数:', withUserNames.length)
       } catch (err) {
         console.error('[ApprovalPage] エラー:', err)
         setError('修正申請の読み込みに失敗しました')
@@ -95,7 +89,6 @@ export const ApprovalPage: React.FC = () => {
       setAllApprovals((prev) =>
         prev.map((a) => (a.id === requestId ? { ...a, status: 'approved' } : a))
       )
-      console.log('[ApprovalPage] 承認しました:', requestId)
     } catch (err) {
       console.error('[ApprovalPage] 承認エラー:', err)
       setError('承認に失敗しました')
@@ -122,7 +115,6 @@ export const ApprovalPage: React.FC = () => {
       setAllApprovals((prev) =>
         prev.map((a) => (a.id === requestId ? { ...a, status: 'rejected' } : a))
       )
-      console.log('[ApprovalPage] 却下しました:', requestId)
     } catch (err) {
       console.error('[ApprovalPage] 却下エラー:', err)
       setError('却下に失敗しました')
@@ -150,7 +142,7 @@ export const ApprovalPage: React.FC = () => {
           <p className="text-sm text-gray-600 mt-1">修正申請を確認・承認できます</p>
         </div>
         <div className="bg-yellow-50 border border-yellow-200 text-yellow-800 px-4 py-3 rounded-md">
-          ⚠️ 管理者のみが承認・却下できます（表示のみ可能）
+管理者のみが承認・却下できます（表示のみ可能）
         </div>
       </div>
     )
@@ -165,7 +157,7 @@ export const ApprovalPage: React.FC = () => {
 
       {error && (
         <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-md">
-          ❌ {error}
+{error}
         </div>
       )}
 
@@ -293,7 +285,7 @@ export const ApprovalPage: React.FC = () => {
                             : 'bg-red-100 text-red-800'
                         }
                       >
-                        {selectedTab === 'approved' ? '✅ 承認済み' : '❌ 却下'}
+                        {selectedTab === 'approved' ? '承認済み' : '却下'}
                       </Badge>
                     )}
                   </div>

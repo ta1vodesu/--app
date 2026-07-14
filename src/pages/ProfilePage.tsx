@@ -108,7 +108,7 @@ export const ProfilePage: React.FC = () => {
       {saved && (
         <div className="bg-green-50 border border-green-200 rounded-lg p-4">
           <p className="text-green-800 font-medium">
-            ✅ プロフィールが保存されました。
+プロフィールが保存されました。
           </p>
         </div>
       )}

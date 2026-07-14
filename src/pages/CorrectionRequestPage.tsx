@@ -48,8 +48,6 @@ export const CorrectionRequestPage: React.FC = () => {
           return
         }
 
-        console.log('[CorrectionRequestPage] 修正申請を取得中...')
-
         // 修正申請を取得（全ステータス）
         const { data: requests, error: requestsError } = await supabase
           .from('corrections')
@@ -63,7 +61,6 @@ export const CorrectionRequestPage: React.FC = () => {
         }
 
         setMyRequests(requests || [])
-        console.log('[CorrectionRequestPage] 修正申請件数:', requests?.length)
 
         // 出勤記録を取得
         const { data: attendances } = await supabase
@@ -95,8 +92,6 @@ export const CorrectionRequestPage: React.FC = () => {
             filter: `user_id=eq.${userProfile.id}`,
           },
           (payload) => {
-            console.log('[CorrectionRequestPage] リアルタイム更新:', payload)
-
             if (payload.eventType === 'INSERT') {
               // 新しい申請が追加された
               setMyRequests((prev) => [payload.new as CorrectionRequest, ...prev])
@@ -129,8 +124,6 @@ export const CorrectionRequestPage: React.FC = () => {
     setIsSubmitting(true)
 
     try {
-      console.log('[CorrectionRequestPage] 修正申請を送信:', newRequest)
-
       const { error: insertError } = await supabase
         .from('corrections')
         .insert({
@@ -146,8 +139,6 @@ export const CorrectionRequestPage: React.FC = () => {
         console.error('[CorrectionRequestPage] INSERT エラー:', insertError)
         throw insertError
       }
-
-      console.log('[CorrectionRequestPage] 申請を送信しました')
 
       // リロード
       const { data } = await supabase
@@ -231,7 +222,7 @@ export const CorrectionRequestPage: React.FC = () => {
 
       <div className="flex gap-2">
         <Button onClick={() => setShowNewRequestForm(!showNewRequestForm)}>
-          {showNewRequestForm ? 'キャンセル' : '➕ 新しい申請'}
+          {showNewRequestForm ? 'キャンセル' : '新しい申請'}
         </Button>
       </div>
 
@@ -352,10 +343,10 @@ export const CorrectionRequestPage: React.FC = () => {
                       }
                     >
                       {request.status === 'pending'
-                        ? '⏳ 待機中'
+                        ? '待機中'
                         : request.status === 'approved'
-                        ? '✅ 承認済み'
-                        : '❌ 却下'}
+                        ? '承認済み'
+                        : '却下'}
                     </Badge>
                   </div>
                 </div>

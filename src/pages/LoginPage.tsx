@@ -71,7 +71,7 @@ export const LoginPage: React.FC = () => {
     }
 
     try {
-      console.log("[LoginPage] ログイン試行:", formData.email); await login(formData.email, formData.password); console.log("[LoginPage] ✅ ログイン成功");
+      console.log("[LoginPage] ログイン試行:", formData.email); await login(formData.email, formData.password); console.log("[LoginPage]ログイン成功");
       setRedirectPending(true)
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'ログインに失敗しました'
@@ -101,13 +101,13 @@ export const LoginPage: React.FC = () => {
             <form onSubmit={handleSubmit} className="space-y-4">
               {successMessage && (
                 <div className="bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-md text-sm">
-                  ✅ {successMessage}
+{successMessage}
                 </div>
               )}
 
               {error && (
                 <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-md text-sm">
-                  ❌ {error}
+{error}
                 </div>
               )}
 
