@@ -11,8 +11,8 @@ interface AttendanceRecord {
 
 interface AttendanceCalendarProps {
   attendances: AttendanceRecord[]
-  selectedDate?: Date
-  onDateSelect?: (date: Date) => void
+  selectedDate?: any
+  onDateSelect?: (value: any) => void
 }
 
 export const AttendanceCalendar: React.FC<AttendanceCalendarProps> = ({

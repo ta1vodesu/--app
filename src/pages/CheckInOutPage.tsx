@@ -1,20 +1,20 @@
 import React, { useState, useEffect } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Button } from '@/components/ui/button'
 import { useAuth } from '@/context/AuthContext'
 import { supabase } from '@/lib/supabase'
 
 export const CheckInOutPage: React.FC = () => {
   const { userProfile } = useAuth()
   const [isCheckedIn, setIsCheckedIn] = useState(false)
+  const [isCheckedOut, setIsCheckedOut] = useState(false)
   const [checkedInTime, setCheckedInTime] = useState<string | null>(null)
+  const [checkedOutTime, setCheckedOutTime] = useState<string | null>(null)
   const [currentTime, setCurrentTime] = useState<string>('')
   const [currentDate, setCurrentDate] = useState<string>('')
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [message, setMessage] = useState<string | null>(null)
 
-  // 毎秒時刻を更新
   useEffect(() => {
     const updateTime = () => {
       const now = new Date()
@@ -40,14 +40,13 @@ export const CheckInOutPage: React.FC = () => {
     return () => clearInterval(interval)
   }, [])
 
-  // 本日の勤怠情報を取得
   useEffect(() => {
     const fetchTodayAttendance = async () => {
       if (!userProfile?.id) return
 
       try {
         const now = new Date()
-        const dateStr = now.toLocaleDateString('en-CA', { timeZone: 'Asia/Tokyo' }) // YYYY-MM-DD
+        const dateStr = now.toLocaleDateString('en-CA', { timeZone: 'Asia/Tokyo' })
 
         const { data, error: fetchError } = await supabase
           .from('attendances')
@@ -62,10 +61,23 @@ export const CheckInOutPage: React.FC = () => {
         }
 
         if (data) {
-          setIsCheckedIn(!!data.check_in_time)
+          const hasCheckedIn = !!data.check_in_time
+          const hasCheckedOut = !!data.check_out_time
+
+          setIsCheckedIn(hasCheckedIn)
+          setIsCheckedOut(hasCheckedOut)
+
           if (data.check_in_time) {
             setCheckedInTime(data.check_in_time)
           }
+          if (data.check_out_time) {
+            setCheckedOutTime(data.check_out_time)
+          }
+        } else {
+          setIsCheckedIn(false)
+          setIsCheckedOut(false)
+          setCheckedInTime(null)
+          setCheckedOutTime(null)
         }
       } catch (err) {
         console.error('[CheckInOutPage] 勤怠情報取得例外:', err)
@@ -81,64 +93,8 @@ export const CheckInOutPage: React.FC = () => {
       return
     }
 
-    setIsLoading(true)
-    setError(null)
-    setMessage(null)
-
-    try {
-      const now = new Date()
-      const dateStr = now.toLocaleDateString('en-CA', { timeZone: 'Asia/Tokyo' })
-      const timeStr = now.toLocaleTimeString('en-US', {
-        hour: '2-digit',
-        minute: '2-digit',
-        second: '2-digit',
-        timeZone: 'Asia/Tokyo',
-      })
-
-      // 本日の勤怠情報を取得
-      const { data: existing, error: fetchError } = await supabase
-        .from('attendances')
-        .select('*')
-        .eq('user_id', userProfile.id)
-        .eq('date', dateStr)
-        .maybeSingle()
-
-      if (fetchError) {
-        throw fetchError
-      }
-
-      if (existing) {
-        // 既に存在する場合はエラー
-        setError('本日は既に出勤しています')
-        setIsLoading(false)
-        return
-      }
-
-      // 新しい勤怠記録を作成
-      const { error: insertError } = await supabase.from('attendances').insert({
-        user_id: userProfile.id,
-        date: dateStr,
-        check_in_time: timeStr,
-        status: 'working',
-      })
-
-      if (insertError) throw insertError
-
-      setIsCheckedIn(true)
-      setCheckedInTime(timeStr)
-      setMessage(`✅ 出勤しました (${timeStr})`)
-      setTimeout(() => setMessage(null), 3000)
-    } catch (err) {
-      console.error('Check-in failed:', err)
-      setError(err instanceof Error ? err.message : '出勤に失敗しました')
-    } finally {
-      setIsLoading(false)
-    }
-  }
-
-  const handleCheckOut = async () => {
-    if (!userProfile?.id) {
-      setError('ユーザー情報が取得できません')
+    if (isCheckedIn) {
+      setError('本日は既に出勤しています')
       return
     }
 
@@ -156,20 +112,90 @@ export const CheckInOutPage: React.FC = () => {
         timeZone: 'Asia/Tokyo',
       })
 
-      // 勤怠記録を更新
+      const { data: existing } = await supabase
+        .from('attendances')
+        .select('*')
+        .eq('user_id', userProfile.id)
+        .eq('date', dateStr)
+        .maybeSingle()
+
+      if (existing) {
+        setError('本日は既に出勤しています')
+        setIsLoading(false)
+        return
+      }
+
+      const { error: insertError } = await supabase
+        .from('attendances')
+        .insert({
+          user_id: userProfile.id,
+          date: dateStr,
+          check_in_time: timeStr,
+          status: 'working',
+        })
+
+      if (insertError) throw insertError
+
+      setIsCheckedIn(true)
+      setCheckedInTime(timeStr)
+      setMessage(`✅ 出勤しました (${timeStr})`)
+      setTimeout(() => setMessage(null), 3000)
+    } catch (err) {
+      console.error('[CheckInOutPage] 出勤失敗:', err)
+      const errorMsg = err instanceof Error ? err.message : '出勤に失敗しました'
+      setError(errorMsg)
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  const handleCheckOut = async () => {
+    if (!userProfile?.id) {
+      setError('ユーザー情報が取得できません')
+      return
+    }
+
+    if (isCheckedOut) {
+      setError('本日は既に退勤しています')
+      return
+    }
+
+    if (!isCheckedIn) {
+      setError('先に出勤してください')
+      return
+    }
+
+    setIsLoading(true)
+    setError(null)
+    setMessage(null)
+
+    try {
+      const now = new Date()
+      const dateStr = now.toLocaleDateString('en-CA', { timeZone: 'Asia/Tokyo' })
+      const timeStr = now.toLocaleTimeString('en-US', {
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+        timeZone: 'Asia/Tokyo',
+      })
+
       const { error: updateError } = await supabase
         .from('attendances')
-        .update({ check_out_time: timeStr, status: 'approved' })
+        .update({ check_out_time: timeStr, status: 'worked' })
         .eq('user_id', userProfile.id)
         .eq('date', dateStr)
 
-      if (updateError) throw updateError
+      if (updateError) {
+        console.error('[CheckInOutPage] 退勤更新エラー:', updateError)
+        throw updateError
+      }
 
-      setIsCheckedIn(false)
+      setIsCheckedOut(true)
+      setCheckedOutTime(timeStr)
       setMessage(`✅ 退勤しました (${timeStr})`)
       setTimeout(() => setMessage(null), 3000)
     } catch (err) {
-      console.error('Check-out failed:', err)
+      console.error('[CheckInOutPage] 退勤失敗:', err)
       setError(err instanceof Error ? err.message : '退勤に失敗しました')
     } finally {
       setIsLoading(false)
@@ -202,30 +228,32 @@ export const CheckInOutPage: React.FC = () => {
         </CardHeader>
         <CardContent>
           <div className="space-y-6">
-            {/* 時刻表示 */}
             <div className="text-center">
               <p className="text-sm text-gray-600 mb-2">{currentDate}</p>
               <p className="text-5xl font-bold text-primary mb-4">{currentTime}</p>
             </div>
 
-            {/* 状態表示 */}
             <div className="bg-gray-50 rounded-lg p-4 text-center">
               <p className="text-sm text-gray-600 mb-2">勤務状態</p>
-              <p className={`text-2xl font-bold ${isCheckedIn ? 'text-green-600' : 'text-gray-600'}`}>
-                {isCheckedIn ? '出勤中' : '未出勤'}
+              <p className={`text-2xl font-bold ${
+                isCheckedOut ? 'text-red-600' : isCheckedIn ? 'text-green-600' : 'text-gray-600'
+              }`}>
+                {isCheckedOut ? '退勤済み' : isCheckedIn ? '出勤中' : '未出勤'}
               </p>
               {checkedInTime && (
                 <p className="text-sm text-gray-500 mt-2">出勤時刻: {checkedInTime}</p>
               )}
+              {checkedOutTime && (
+                <p className="text-sm text-gray-500 mt-1">退勤時刻: {checkedOutTime}</p>
+              )}
             </div>
 
-            {/* ボタン */}
             <div className="flex gap-3">
               <button
                 onClick={handleCheckIn}
-                disabled={isCheckedIn || isLoading}
+                disabled={isCheckedIn || isCheckedOut || isLoading}
                 className={`flex-1 py-3 px-4 rounded-md font-medium transition ${
-                  isCheckedIn || isLoading
+                  isCheckedIn || isCheckedOut || isLoading
                     ? 'bg-gray-300 text-gray-600 cursor-not-allowed'
                     : 'bg-green-600 text-white hover:bg-green-700'
                 }`}
@@ -234,9 +262,9 @@ export const CheckInOutPage: React.FC = () => {
               </button>
               <button
                 onClick={handleCheckOut}
-                disabled={!isCheckedIn || isLoading}
+                disabled={!isCheckedIn || isCheckedOut || isLoading}
                 className={`flex-1 py-3 px-4 rounded-md font-medium transition ${
-                  !isCheckedIn || isLoading
+                  !isCheckedIn || isCheckedOut || isLoading
                     ? 'bg-gray-300 text-gray-600 cursor-not-allowed'
                     : 'bg-red-600 text-white hover:bg-red-700'
                 }`}

@@ -56,7 +56,7 @@ export const AccountSettingsPage: React.FC = () => {
       }
 
       const { error: updateError } = await supabase
-        .from('users')
+        .from('profiles')
         .update({
           name: formData.name,
           email: formData.email,

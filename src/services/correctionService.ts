@@ -3,7 +3,7 @@ import { supabase } from '@/lib/supabase'
 export const correctionService = {
   async getCorrectionRequests(userId: string) {
     const { data, error } = await supabase
-      .from('correction_requests')
+      .from('corrections')
       .select('*')
       .eq('user_id', userId)
       .order('created_at', { ascending: false })
@@ -27,7 +27,7 @@ export const correctionService = {
     reason: string
   ) {
     const { data, error } = await supabase
-      .from('correction_requests')
+      .from('corrections')
       .insert([
         {
           user_id: userId,
@@ -51,8 +51,8 @@ export const correctionService = {
 
   async getPendingRequests() {
     const { data, error } = await supabase
-      .from('correction_requests')
-      .select('*, users(name, email), attendances(date)')
+      .from('corrections')
+      .select('*, profiles(name, email), attendances(date)')
       .eq('status', 'pending')
       .order('created_at', { ascending: false })
 
@@ -63,49 +63,39 @@ export const correctionService = {
     return data || []
   },
 
-  async approveRequest(requestId: string, approverId: string) {
+  async approveRequest(requestId: string, approverId: string, note?: string) {
     const { data, error } = await supabase
-      .from('correction_requests')
-      .update({ status: 'approved' })
+      .from('corrections')
+      .update({
+        status: 'approved',
+        approver_id: approverId,
+        approval_note: note,
+        approved_at: new Date().toISOString(),
+      })
       .eq('id', requestId)
       .select()
 
     if (error) {
       throw new Error(error.message)
     }
-
-    // 承認レコードを作成
-    await supabase.from('approvals').insert([
-      {
-        correction_request_id: requestId,
-        approver_id: approverId,
-        status: 'approved',
-        approved_at: new Date().toISOString(),
-      },
-    ])
 
     return data?.[0] || null
   },
 
-  async rejectRequest(requestId: string, approverId: string) {
+  async rejectRequest(requestId: string, approverId: string, note?: string) {
     const { data, error } = await supabase
-      .from('correction_requests')
-      .update({ status: 'rejected' })
+      .from('corrections')
+      .update({
+        status: 'rejected',
+        approver_id: approverId,
+        approval_note: note,
+      })
       .eq('id', requestId)
       .select()
 
     if (error) {
       throw new Error(error.message)
     }
-
-    // 却下レコードを作成
-    await supabase.from('approvals').insert([
-      {
-        correction_request_id: requestId,
-        approver_id: approverId,
-        status: 'rejected',
-      },
-    ])
 
     return data?.[0] || null
   },

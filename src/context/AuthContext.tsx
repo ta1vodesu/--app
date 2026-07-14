@@ -1,6 +1,7 @@
-import React, { createContext, useContext, useEffect, useState } from 'react'
+import React, { createContext, useContext, useEffect, useState, useRef } from 'react'
 import { User } from '@supabase/supabase-js'
 import { supabase } from '@/lib/supabase'
+import { UserRole } from '@/types'
 
 interface UserProfile {
   id: string
@@ -30,32 +31,49 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null)
   const [isLoading, setIsLoading] = useState(true)
 
-  const fetchUserProfile = async (userId: string) => {
+  // 重複リクエストを防ぐためのRef
+  const profileFetchingRef = useRef<Set<string>>(new Set())
+  const lastProfileFetchRef = useRef<Map<string, number>>(new Map())
+
+  const fetchUserProfile = async (userId: string, forceRefresh = false) => {
+    // 既に同じユーザーのプロフィール取得中の場合は、待機
+    if (profileFetchingRef.current.has(userId) && !forceRefresh) {
+      return null
+    }
+
+    // 前回の取得から1分以内の場合はスキップ（forceRefresh でない限り）
+    const lastFetch = lastProfileFetchRef.current.get(userId) || 0
+    const now = Date.now()
+    if (!forceRefresh && now - lastFetch < 60000) {
+      return null
+    }
+
+    profileFetchingRef.current.add(userId)
+    lastProfileFetchRef.current.set(userId, now)
+
     try {
-      console.log('[AuthContext] プロフィール取得開始:', userId)
-      
       const { data, error } = await supabase
-        .from('users')
-        .select('*')
+        .from('profiles')
+        .select('id, email, name, role, department_id, is_active, created_at, updated_at')
         .eq('id', userId)
         .single()
 
+      // エラーが発生した場合もサイレントに続行（部署情報は必須ではない）
       if (error) {
-        console.error('[AuthContext] ❌ プロフィール取得エラー:', {
-          message: error.message,
-          details: error.details,
-          hint: error.hint,
-          code: error.code,
-        })
         return null
       }
 
-      console.log('[AuthContext] ✅ プロフィール取得成功:', data)
+      if (!data) {
+        return null
+      }
+
       setUserProfile(data as UserProfile)
       return data as UserProfile
     } catch (error) {
-      console.error('[AuthContext] ❌ プロフィール取得例外:', error)
+      // 例外も無視してサイレント処理
       return null
+    } finally {
+      profileFetchingRef.current.delete(userId)
     }
   }
 
@@ -69,7 +87,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
         if (authUser?.id) {
           console.log('[AuthContext] ✅ セッション有効:', authUser.email)
-          await fetchUserProfile(authUser.id)
+          await fetchUserProfile(authUser.id, true)
         } else {
           console.log('[AuthContext] ℹ️ セッションなし')
           setUserProfile(null)
@@ -84,16 +102,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     checkAuth()
 
     const { data: listener } = supabase.auth.onAuthStateChange((event, session) => {
-      console.log('[AuthContext] 認証状態変化イベント:', event)
+      console.log('[AuthContext] 認証状態変化:', event)
       const authUser = session?.user ?? null
       setUser(authUser)
 
       if (authUser?.id) {
         console.log('[AuthContext] ✅ ユーザーログイン:', authUser.email)
-        fetchUserProfile(authUser.id)
+        fetchUserProfile(authUser.id, true)
       } else {
         console.log('[AuthContext] 🚪 ユーザーログアウト')
         setUserProfile(null)
+        profileFetchingRef.current.clear()
+        lastProfileFetchRef.current.clear()
       }
     })
 
@@ -114,7 +134,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       console.log('[AuthContext] ✅ ログイン成功')
       if (data.user?.id) {
         setUser(data.user)
-        await fetchUserProfile(data.user.id)
+        await fetchUserProfile(data.user.id, true)
       }
     } catch (error) {
       console.error('[AuthContext] ❌ ログインエラー:', error)
@@ -131,6 +151,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       console.log('[AuthContext] ✅ ログアウト成功')
       setUser(null)
       setUserProfile(null)
+      profileFetchingRef.current.clear()
+      lastProfileFetchRef.current.clear()
     } catch (error) {
       console.error('[AuthContext] ❌ ログアウトエラー:', error)
       setUser(null)
@@ -142,7 +164,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const signup = async (email: string, password: string, name?: string) => {
     try {
       console.log('[AuthContext] サインアップ開始:', { email, name })
-      
+
       const { data: authData, error: authError } = await supabase.auth.signUp({
         email,
         password,
@@ -158,28 +180,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       console.log('[AuthContext] ✅ 認証ユーザー作成成功:', authData.user.id)
 
-      const { data: deptData } = await supabase
-        .from('departments')
-        .select('id')
-        .limit(1)
-        .single()
-
-      let departmentId: string | null = null
-      if (deptData?.id) {
-        departmentId = deptData.id
-        console.log('[AuthContext] ✅ 部署を取得:', departmentId)
-      }
-
-      const { error: profileError } = await supabase
-        .from('users')
-        .insert({
-          id: authData.user.id,
-          email: email,
-          name: name || email.split('@')[0],
-          role: 'employee',
-          department_id: departmentId,
-          is_active: true,
-        })
+      const { error: profileError } = await supabase.from('profiles').insert({
+        id: authData.user.id,
+        email: email,
+        name: name || email.split('@')[0],
+        role: UserRole.EMPLOYEE,
+        department_id: null,
+        is_active: true,
+      })
 
       if (profileError) {
         console.error('[AuthContext] ❌ プロフィール作成エラー:', profileError)
@@ -201,10 +209,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (signInData.user?.id) {
         console.log('[AuthContext] ✅ 自動ログイン成功')
         setUser(signInData.user)
-        await fetchUserProfile(signInData.user.id)
+        await fetchUserProfile(signInData.user.id, true)
       }
 
-      console.log('[AuthContext] ✅ サインアップ完了:', { id: authData.user.id, name, email, departmentId })
+      console.log('[AuthContext] ✅ サインアップ完了')
     } catch (error) {
       console.error('[AuthContext] ❌ サインアップエラー:', error)
       throw error

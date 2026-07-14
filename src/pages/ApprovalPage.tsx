@@ -4,63 +4,63 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { useAuth } from '@/context/AuthContext'
 import { supabase } from '@/lib/supabase'
-import { CorrectionRequest, RequestStatus } from '@/types'
+import { UserRole } from '@/types'
 
 export const ApprovalPage: React.FC = () => {
   const { userProfile } = useAuth()
-  const [approvals, setApprovals] = useState<CorrectionRequest[]>([])
+  const [approvals, setApprovals] = useState<any[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState('')
+  const [isSubmitting, setIsSubmitting] = useState(false)
+
+  const isAdmin = userProfile?.role === UserRole.ADMIN
 
   useEffect(() => {
     const fetchApprovals = async () => {
       try {
         setIsLoading(true)
 
-        if (!userProfile?.id || userProfile?.department_id === undefined) {
-          setError('ユーザー情報が取得できません')
+        if (!userProfile?.id) {
           return
         }
 
-        // マネージャーの場合は部署内の申請、管理者の場合は全て取得
-        let query = supabase
+        console.log('[ApprovalPage] ユーザーロール:', userProfile.role)
+        console.log('[ApprovalPage] 修正申請を取得中...')
+
+        const { data, error: fetchError } = await supabase
           .from('correction_requests')
-          .select('*, users!inner(name, department_id)')
-          .eq('status', RequestStatus.PENDING)
+          .select('*')
+          .eq('status', 'pending')
+          .order('created_at', { ascending: false })
 
-        if (userProfile.role === 'manager') {
-          query = query.eq('users.department_id', userProfile.department_id)
-        } else if (userProfile.role !== 'admin') {
-          setError('承認権限がありません')
-          return
+        if (fetchError) {
+          console.error('[ApprovalPage] クエリエラー:', fetchError)
+          throw fetchError
         }
 
-        const { data, error: fetchError } = await query
+        console.log('[ApprovalPage] 修正申請データ:', data)
 
-        if (fetchError) throw fetchError
+        // ユーザー情報を取得
+        const withUserNames: any[] = []
+        if (data && data.length > 0) {
+          for (const correction of data) {
+            const { data: userProfileData } = await supabase
+              .from('profiles')
+              .select('name')
+              .eq('id', correction.user_id)
+              .single()
 
-        setApprovals(
-          (data || []).map((req: any) => ({
-            id: req.id,
-            userId: req.user_id,
-            userName: req.users?.name || '不明',
-            attendanceDate: req.attendance_id,
-            originalCheckIn: req.original_check_in,
-            correctedCheckIn: req.corrected_check_in,
-            originalCheckOut: req.original_check_out,
-            correctedCheckOut: req.corrected_check_out,
-            reason: req.reason,
-            status: req.status,
-            userInitials: (req.users?.name || '')
-              .split(' ')
-              .map((n: string) => n[0])
-              .join('')
-              .toUpperCase(),
-          }))
-        )
+            withUserNames.push({
+              ...correction,
+              userName: userProfileData?.name || '不明',
+            })
+          }
+        }
+
+        setApprovals(withUserNames)
+        console.log('[ApprovalPage] 修正申請件数:', withUserNames.length)
       } catch (err) {
-        console.error('Failed to fetch approvals:', err)
-        setError('承認待ち情報の読み込みに失敗しました')
+        console.error('[ApprovalPage] エラー:', err)
       } finally {
         setIsLoading(false)
       }
@@ -69,60 +69,64 @@ export const ApprovalPage: React.FC = () => {
     if (userProfile?.id) {
       fetchApprovals()
     }
-  }, [userProfile?.id, userProfile?.role, userProfile?.department_id])
+  }, [userProfile?.id, userProfile?.role])
 
   const handleApprove = async (requestId: string) => {
+    if (!isAdmin) {
+      setError('管理者のみが承認できます')
+      return
+    }
+
+    setIsSubmitting(true)
     try {
       const { error: updateError } = await supabase
         .from('correction_requests')
-        .update({ status: RequestStatus.APPROVED })
+        .update({ status: 'approved' })
         .eq('id', requestId)
 
       if (updateError) throw updateError
 
       setApprovals((prev) => prev.filter((a) => a.id !== requestId))
+      console.log('[ApprovalPage] 承認しました:', requestId)
     } catch (err) {
-      console.error('Failed to approve:', err)
+      console.error('[ApprovalPage] 承認エラー:', err)
       setError('承認に失敗しました')
+    } finally {
+      setIsSubmitting(false)
     }
   }
 
   const handleReject = async (requestId: string) => {
+    if (!isAdmin) {
+      setError('管理者のみが却下できます')
+      return
+    }
+
+    setIsSubmitting(true)
     try {
       const { error: updateError } = await supabase
         .from('correction_requests')
-        .update({ status: RequestStatus.REJECTED })
+        .update({ status: 'rejected' })
         .eq('id', requestId)
 
       if (updateError) throw updateError
 
       setApprovals((prev) => prev.filter((a) => a.id !== requestId))
+      console.log('[ApprovalPage] 却下しました:', requestId)
     } catch (err) {
-      console.error('Failed to reject:', err)
+      console.error('[ApprovalPage] 却下エラー:', err)
       setError('却下に失敗しました')
+    } finally {
+      setIsSubmitting(false)
     }
   }
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center h-screen">
+      <div className="flex items-center justify-center h-96">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
           <p className="text-gray-600">承認待ちを読み込み中...</p>
-        </div>
-      </div>
-    )
-  }
-
-  if (error) {
-    return (
-      <div className="space-y-4">
-        <div>
-          <h1 className="page-title text-lg sm:text-2xl">承認待ち</h1>
-          <p className="text-sm text-gray-600 mt-1">修正申請を確認・承認できます</p>
-        </div>
-        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-md">
-          {error}
         </div>
       </div>
     )
@@ -135,10 +139,22 @@ export const ApprovalPage: React.FC = () => {
         <p className="text-sm text-gray-600 mt-1">修正申請を確認・承認できます</p>
       </div>
 
+      {!isAdmin && (
+        <div className="bg-yellow-50 border border-yellow-200 text-yellow-800 px-4 py-3 rounded-md">
+          ⚠️ 管理者のみが承認・却下できます（表示のみ可能）
+        </div>
+      )}
+
+      {error && (
+        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-md">
+          ❌ {error}
+        </div>
+      )}
+
       <Card>
         <CardHeader>
           <CardTitle>保留中の申請</CardTitle>
-          <CardDescription>{approvals.length}件</CardDescription>
+          <CardDescription>{approvals.length}件の待機中申請</CardDescription>
         </CardHeader>
         <CardContent>
           {approvals.length === 0 ? (
@@ -146,42 +162,76 @@ export const ApprovalPage: React.FC = () => {
           ) : (
             <div className="space-y-4">
               {approvals.map((approval) => (
-                <div key={approval.id} className="border border-gray-200 rounded-lg p-4">
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
-                    <div>
-                      <p className="text-sm text-gray-600">申請者</p>
-                      <p className="font-medium">{approval.userName}</p>
+                <div key={approval.id} className="border border-gray-200 rounded-lg p-4 hover:bg-gray-50 transition">
+                  <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
+                    <div className="flex-1 space-y-3">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div>
+                          <p className="text-xs sm:text-sm text-gray-600 font-medium">申請者</p>
+                          <p className="text-sm sm:text-base font-medium">{approval.userName}</p>
+                        </div>
+                        <div>
+                          <p className="text-xs sm:text-sm text-gray-600 font-medium">申請日</p>
+                          <p className="text-sm">
+                            {new Date(approval.created_at).toLocaleDateString('ja-JP')}
+                          </p>
+                        </div>
+                      </div>
+
+                      <div>
+                        <p className="text-xs sm:text-sm text-gray-600 font-medium">修正理由</p>
+                        <p className="text-sm bg-blue-50 border border-blue-200 rounded p-2">
+                          {approval.reason}
+                        </p>
+                      </div>
+
+                      {(approval.original_check_in || approval.corrected_check_in) && (
+                        <div>
+                          <p className="text-xs sm:text-sm text-gray-600 font-medium">出勤時刻</p>
+                          <p className="text-sm">
+                            <span className="line-through text-gray-500">{approval.original_check_in || '-'}</span>
+                            {' → '}
+                            <span className="font-semibold text-green-600">{approval.corrected_check_in || '-'}</span>
+                          </p>
+                        </div>
+                      )}
+
+                      {(approval.original_check_out || approval.corrected_check_out) && (
+                        <div>
+                          <p className="text-xs sm:text-sm text-gray-600 font-medium">退勤時刻</p>
+                          <p className="text-sm">
+                            <span className="line-through text-gray-500">{approval.original_check_out || '-'}</span>
+                            {' → '}
+                            <span className="font-semibold text-green-600">{approval.corrected_check_out || '-'}</span>
+                          </p>
+                        </div>
+                      )}
+
+                      <div>
+                        <Badge variant="secondary">待機中</Badge>
+                      </div>
                     </div>
-                    <div>
-                      <p className="text-sm text-gray-600">対象日</p>
-                      <p className="font-medium">{approval.attendanceDate}</p>
+
+                    <div className="flex gap-2 w-full sm:w-auto flex-shrink-0">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleReject(approval.id)}
+                        disabled={!isAdmin || isSubmitting}
+                        className={isAdmin ? 'text-red-600 hover:text-red-700' : ''}
+                        title={!isAdmin ? '管理者のみが操作できます' : ''}
+                      >
+                        却下
+                      </Button>
+                      <Button
+                        size="sm"
+                        onClick={() => handleApprove(approval.id)}
+                        disabled={!isAdmin || isSubmitting}
+                        title={!isAdmin ? '管理者のみが操作できます' : ''}
+                      >
+                        {isSubmitting ? '処理中...' : '承認'}
+                      </Button>
                     </div>
-                    <div>
-                      <p className="text-sm text-gray-600">修正内容</p>
-                      <p className="font-medium text-sm">
-                        出勤: {approval.originalCheckIn} → {approval.correctedCheckIn}
-                      </p>
-                      <p className="font-medium text-sm">
-                        退勤: {approval.originalCheckOut} → {approval.correctedCheckOut}
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-sm text-gray-600">理由</p>
-                      <p className="font-medium">{approval.reason}</p>
-                    </div>
-                  </div>
-                  <div className="flex gap-2 justify-end">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => handleReject(approval.id)}
-                      className="text-red-600 hover:text-red-700"
-                    >
-                      却下
-                    </Button>
-                    <Button size="sm" onClick={() => handleApprove(approval.id)}>
-                      承認
-                    </Button>
                   </div>
                 </div>
               ))}

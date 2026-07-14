@@ -61,7 +61,7 @@ export const DashboardPage: React.FC = () => {
           .from('attendances')
           .select('*')
           .eq('date', today)
-          .order('check_in_time', { ascending: true,  })
+          .order('check_in_time', { ascending: true, nullsLast: true })
 
         if (todayAllData && todayAllData.length > 0) {
           const userIds = [...new Set(todayAllData.map(a => a.user_id))]
@@ -123,7 +123,7 @@ export const DashboardPage: React.FC = () => {
 
           // このユーザーの承認待ち件数
           const { count: pendingCount } = await supabase
-            .from('corrections')
+            .from('correction_requests')
             .select('id', { count: 'exact', head: true })
             .eq('user_id', userProfile.id)
             .eq('status', 'pending')
