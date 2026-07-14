@@ -4,13 +4,15 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { useAuth } from '@/context/AuthContext'
 import { supabase } from '@/lib/supabase'
-import { UserRole } from '@/types'
+import { Correction, UserRole } from '@/types'
 
 type StatusTab = 'pending' | 'approved' | 'rejected'
 
+type ApprovalItem = Correction & { userName: string }
+
 export const ApprovalPage: React.FC = () => {
   const { userProfile } = useAuth()
-  const [allApprovals, setAllApprovals] = useState<any[]>([])
+  const [allApprovals, setAllApprovals] = useState<ApprovalItem[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -21,15 +23,12 @@ export const ApprovalPage: React.FC = () => {
   const filteredApprovals = allApprovals.filter((a) => a.status === selectedTab)
 
   useEffect(() => {
+    let ignore = false
+
     const fetchApprovals = async () => {
       try {
         setIsLoading(true)
 
-        if (!userProfile?.id) {
-          return
-        }
-
-        // すべてのステータスのデータを取得
         const { data, error: fetchError } = await supabase
           .from('corrections')
           .select('*')
@@ -40,54 +39,87 @@ export const ApprovalPage: React.FC = () => {
           throw fetchError
         }
 
-        // ユーザー情報を取得
-        const withUserNames: any[] = []
+        // 申請者名を一括取得（N+1 回避）
+        let withUserNames: ApprovalItem[] = []
         if (data && data.length > 0) {
-          for (const correction of data) {
-            const { data: userProfileData } = await supabase
-              .from('profiles')
-              .select('name')
-              .eq('id', correction.user_id)
-              .single()
+          const userIds = [...new Set(data.map((c) => c.user_id))]
+          const { data: profilesData, error: profilesError } = await supabase
+            .from('profiles')
+            .select('id, name')
+            .in('id', userIds)
 
-            withUserNames.push({
-              ...correction,
-              userName: userProfileData?.name || '不明',
-            })
+          if (profilesError) {
+            console.error('[ApprovalPage] プロフィール取得エラー:', profilesError)
           }
+
+          withUserNames = data.map((correction) => ({
+            ...correction,
+            userName: profilesData?.find((p) => p.id === correction.user_id)?.name || '不明',
+          }))
         }
 
-        setAllApprovals(withUserNames)
+        if (!ignore) setAllApprovals(withUserNames)
       } catch (err) {
         console.error('[ApprovalPage] エラー:', err)
-        setError('修正申請の読み込みに失敗しました')
+        if (!ignore) setError('修正申請の読み込みに失敗しました')
       } finally {
-        setIsLoading(false)
+        if (!ignore) setIsLoading(false)
       }
     }
 
-    if (userProfile?.id) {
-      fetchApprovals()
-    }
-  }, [userProfile?.id, userProfile?.role])
+    if (!userProfile?.id) return
 
-  const handleApprove = async (requestId: string) => {
+    // 管理者以外はデータ取得自体を行わない
+    if (isAdmin) {
+      fetchApprovals()
+    } else {
+      setIsLoading(false)
+    }
+
+    return () => {
+      ignore = true
+    }
+  }, [userProfile?.id, userProfile?.role, isAdmin])
+
+  const handleApprove = async (approval: ApprovalItem) => {
     if (!isAdmin) {
       setError('管理者のみが承認できます')
       return
     }
 
     setIsSubmitting(true)
+    setError('')
     try {
       const { error: updateError } = await supabase
         .from('corrections')
-        .update({ status: 'approved', approver_id: userProfile?.id })
-        .eq('id', requestId)
+        .update({
+          status: 'approved',
+          approver_id: userProfile?.id,
+          approved_at: new Date().toISOString(),
+        })
+        .eq('id', approval.id)
 
       if (updateError) throw updateError
 
+      // 承認内容を実際の勤怠記録に反映する
+      const patch: Record<string, string> = {}
+      if (approval.corrected_check_in) patch.check_in_time = approval.corrected_check_in
+      if (approval.corrected_check_out) patch.check_out_time = approval.corrected_check_out
+
+      if (approval.attendance_id && Object.keys(patch).length > 0) {
+        const { error: attendanceError } = await supabase
+          .from('attendances')
+          .update(patch)
+          .eq('id', approval.attendance_id)
+
+        if (attendanceError) {
+          console.error('[ApprovalPage] 勤怠反映エラー:', attendanceError)
+          setError('承認しましたが、勤怠記録への反映に失敗しました')
+        }
+      }
+
       setAllApprovals((prev) =>
-        prev.map((a) => (a.id === requestId ? { ...a, status: 'approved' } : a))
+        prev.map((a) => (a.id === approval.id ? { ...a, status: 'approved' } : a))
       )
     } catch (err) {
       console.error('[ApprovalPage] 承認エラー:', err)
@@ -97,23 +129,28 @@ export const ApprovalPage: React.FC = () => {
     }
   }
 
-  const handleReject = async (requestId: string) => {
+  const handleReject = async (approval: ApprovalItem) => {
     if (!isAdmin) {
       setError('管理者のみが却下できます')
       return
     }
 
     setIsSubmitting(true)
+    setError('')
     try {
       const { error: updateError } = await supabase
         .from('corrections')
-        .update({ status: 'rejected', approver_id: userProfile?.id })
-        .eq('id', requestId)
+        .update({
+          status: 'rejected',
+          approver_id: userProfile?.id,
+          approved_at: new Date().toISOString(),
+        })
+        .eq('id', approval.id)
 
       if (updateError) throw updateError
 
       setAllApprovals((prev) =>
-        prev.map((a) => (a.id === requestId ? { ...a, status: 'rejected' } : a))
+        prev.map((a) => (a.id === approval.id ? { ...a, status: 'rejected' } : a))
       )
     } catch (err) {
       console.error('[ApprovalPage] 却下エラー:', err)
@@ -142,7 +179,7 @@ export const ApprovalPage: React.FC = () => {
           <p className="text-sm text-gray-600 mt-1">修正申請を確認・承認できます</p>
         </div>
         <div className="bg-yellow-50 border border-yellow-200 text-yellow-800 px-4 py-3 rounded-md">
-管理者のみが承認・却下できます（表示のみ可能）
+          このページは管理者のみ利用できます
         </div>
       </div>
     )
@@ -157,7 +194,7 @@ export const ApprovalPage: React.FC = () => {
 
       {error && (
         <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-md">
-{error}
+          {error}
         </div>
       )}
 
@@ -221,7 +258,9 @@ export const ApprovalPage: React.FC = () => {
                         <div>
                           <p className="text-xs sm:text-sm text-gray-600 font-medium">申請日</p>
                           <p className="text-sm">
-                            {new Date(approval.created_at).toLocaleDateString('ja-JP')}
+                            {approval.created_at
+                              ? new Date(approval.created_at).toLocaleDateString('ja-JP')
+                              : '不明'}
                           </p>
                         </div>
                       </div>
@@ -239,7 +278,7 @@ export const ApprovalPage: React.FC = () => {
                           <p className="text-sm">
                             <span className="line-through text-gray-500">{approval.original_check_in || '-'}</span>
                             {' → '}
-                            <span className="font-semibold text-green-600">{approval.corrected_check_in || '-'}</span>
+                            <span className="font-semibold text-primary">{approval.corrected_check_in || '-'}</span>
                           </p>
                         </div>
                       )}
@@ -250,7 +289,7 @@ export const ApprovalPage: React.FC = () => {
                           <p className="text-sm">
                             <span className="line-through text-gray-500">{approval.original_check_out || '-'}</span>
                             {' → '}
-                            <span className="font-semibold text-green-600">{approval.corrected_check_out || '-'}</span>
+                            <span className="font-semibold text-primary">{approval.corrected_check_out || '-'}</span>
                           </p>
                         </div>
                       )}
@@ -261,7 +300,7 @@ export const ApprovalPage: React.FC = () => {
                         <Button
                           variant="outline"
                           size="sm"
-                          onClick={() => handleReject(approval.id)}
+                          onClick={() => handleReject(approval)}
                           disabled={isSubmitting}
                           className="text-red-600 hover:text-red-700"
                         >
@@ -269,7 +308,7 @@ export const ApprovalPage: React.FC = () => {
                         </Button>
                         <Button
                           size="sm"
-                          onClick={() => handleApprove(approval.id)}
+                          onClick={() => handleApprove(approval)}
                           disabled={isSubmitting}
                         >
                           承認

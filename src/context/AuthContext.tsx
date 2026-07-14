@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useEffect, useState, useRef } from 'react'
 import { User } from '@supabase/supabase-js'
-import { supabase } from '@/lib/supabase'
+import { supabase, isSupabaseConfigured } from '@/lib/supabase'
 import { UserRole } from '@/types'
 
 interface UserProfile {
@@ -58,8 +58,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         .eq('id', userId)
         .single()
 
-      // エラーが発生した場合もサイレントに続行（部署情報は必須ではない）
+      // 取得失敗は UI を止めないが、原因追跡のためログは残す
       if (error) {
+        console.error('[AuthContext]プロフィール取得エラー:', error)
         return null
       }
 
@@ -70,7 +71,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setUserProfile(data as UserProfile)
       return data as UserProfile
     } catch (error) {
-      // 例外も無視してサイレント処理
+      console.error('[AuthContext]プロフィール取得例外:', error)
       return null
     } finally {
       profileFetchingRef.current.delete(userId)
@@ -78,6 +79,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }
 
   useEffect(() => {
+    // Supabase 未設定時はプレースホルダーへ通信しない
+    if (!isSupabaseConfigured()) {
+      setIsLoading(false)
+      return
+    }
+
     const checkAuth = async () => {
       try {
         const { data } = await supabase.auth.getSession()
@@ -103,7 +110,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setUser(authUser)
 
       if (authUser?.id) {
-        fetchUserProfile(authUser.id, true)
+        // checkAuth / login 側の取得と重複しないよう、TTL・実行中ガードを尊重する
+        fetchUserProfile(authUser.id)
       } else {
         setUserProfile(null)
         profileFetchingRef.current.clear()
@@ -170,7 +178,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         id: authData.user.id,
         email: email,
         name: name || email.split('@')[0],
-        role: UserRole.EMPLOYEE,
+        role: UserRole.MEMBER,
         department_id: null,
         is_active: true,
       })
@@ -186,8 +194,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       })
 
       if (signInError) {
+        // アカウント作成は成功しているため、呼び出し側でログイン画面へ誘導する
         console.error('[AuthContext]自動ログインエラー:', signInError)
-        return
+        throw new Error('SIGNUP_AUTOLOGIN_FAILED')
       }
 
       if (signInData.user?.id) {

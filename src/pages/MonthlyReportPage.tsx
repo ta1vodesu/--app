@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useMemo } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -15,7 +15,13 @@ import { Spinner } from '@/components/common/Spinner'
 import { EmptyState } from '@/components/common/EmptyState'
 import { useAuth } from '@/context/AuthContext'
 import { supabase } from '@/lib/supabase'
-import { calculateMonthlyStats, convertAttendanceToDailyReport, DailyReportData, MonthlyStats } from '@/utils/dashboardUtils'
+import {
+  calculateMonthlyStats,
+  convertAttendanceToDailyReport,
+  AttendanceRecordLike,
+  NormalizedStatus,
+} from '@/utils/dashboardUtils'
+import { getMonthRange } from '@/utils/dateHelper'
 
 export const MonthlyReportPage: React.FC = () => {
   const { userProfile } = useAuth()
@@ -24,11 +30,12 @@ export const MonthlyReportPage: React.FC = () => {
   const [startDate, setStartDate] = useState('')
   const [endDate, setEndDate] = useState('')
   const [showFilters, setShowFilters] = useState(false)
-  const [dailyReports, setDailyReports] = useState<DailyReportData[]>([])
-  const [monthlyStats, setMonthlyStats] = useState<MonthlyStats | null>(null)
+  const [attendanceRaw, setAttendanceRaw] = useState<AttendanceRecordLike[]>([])
   const [error, setError] = useState('')
 
   useEffect(() => {
+    let ignore = false
+
     const fetchReportData = async () => {
       try {
         setIsLoading(true)
@@ -40,12 +47,12 @@ export const MonthlyReportPage: React.FC = () => {
           return
         }
 
-        const year = selectedDate.getFullYear()
-        const month = selectedDate.getMonth()
-        const monthStart = new Date(year, month, 1).toISOString().split('T')[0]
-        const monthEnd = new Date(year, month + 1, 0).toISOString().split('T')[0]
+        // toISOString() は UTC 変換で日本時間だと1日ズレるため使用しない
+        const { start: monthStart, end: monthEnd } = getMonthRange(
+          selectedDate.getFullYear(),
+          selectedDate.getMonth()
+        )
 
-        // 月別の勤怠データを取得
         const { data: attendanceData, error: attendanceError } = await supabase
           .from('attendances')
           .select('*')
@@ -59,42 +66,40 @@ export const MonthlyReportPage: React.FC = () => {
           throw new Error(`勤怠データ取得エラー: ${attendanceError.message}`)
         }
 
-        if (!attendanceData || attendanceData.length === 0) {
-          setDailyReports([])
-          setMonthlyStats({
-            totalWorkingDays: 0,
-            totalWorkingHours: '-',
-            totalOvertime: '-',
-            averageWorkingHours: '-',
-            absentDays: 0,
-            holidayDays: 0,
-          })
-          setIsLoading(false)
-          return
-        }
-
-        // 日別レポートに変換
-        const reports = convertAttendanceToDailyReport(attendanceData)
-        setDailyReports(reports)
-
-        // 統計情報を計算
-        const stats = calculateMonthlyStats(attendanceData)
-        setMonthlyStats(stats)
+        if (!ignore) setAttendanceRaw(attendanceData || [])
       } catch (err) {
         console.error('Failed to fetch report data:', err)
-        const errorMsg = err instanceof Error ? err.message : 'レポートデータの読み込みに失敗しました'
-        setError(errorMsg)
-        setDailyReports([])
-        setMonthlyStats(null)
+        const errorMsg =
+          err instanceof Error ? err.message : 'レポートデータの読み込みに失敗しました'
+        if (!ignore) {
+          setError(errorMsg)
+          setAttendanceRaw([])
+        }
       } finally {
-        setIsLoading(false)
+        if (!ignore) setIsLoading(false)
       }
     }
 
     if (userProfile?.id) {
       fetchReportData()
     }
+
+    return () => {
+      ignore = true
+    }
   }, [userProfile?.id, selectedDate])
+
+  // 日付範囲フィルターを適用（YYYY-MM-DD は文字列比較で正しく並ぶ）
+  const filteredData = useMemo(
+    () =>
+      attendanceRaw.filter(
+        (r) => (!startDate || r.date >= startDate) && (!endDate || r.date <= endDate)
+      ),
+    [attendanceRaw, startDate, endDate]
+  )
+
+  const dailyReports = useMemo(() => convertAttendanceToDailyReport(filteredData), [filteredData])
+  const monthlyStats = useMemo(() => calculateMonthlyStats(filteredData), [filteredData])
 
   const handleExport = () => {
     if (dailyReports.length === 0) {
@@ -102,7 +107,6 @@ export const MonthlyReportPage: React.FC = () => {
       return
     }
 
-    // CSV生成
     const headers = ['日付', '出勤', '退勤', '勤務時間', '休憩時間', '残業時間', 'ステータス']
     const rows = dailyReports.map((report) => [
       `${report.date} (${report.dayOfWeek})`,
@@ -114,10 +118,13 @@ export const MonthlyReportPage: React.FC = () => {
       getStatusLabel(report.status),
     ])
 
-    const csvContent = [
-      headers.join(','),
-      ...rows.map((row) => row.map((cell) => `"${cell}"`).join(',')),
-    ].join('\n')
+    // セル内の " をエスケープし、Excel 用に BOM を付与
+    const escapeCell = (cell: string) => `"${String(cell).replace(/"/g, '""')}"`
+    const csvContent =
+      '\uFEFF' +
+      [headers.map(escapeCell).join(','), ...rows.map((row) => row.map(escapeCell).join(','))].join(
+        '\n'
+      )
 
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
     const link = document.createElement('a')
@@ -130,16 +137,17 @@ export const MonthlyReportPage: React.FC = () => {
     document.body.appendChild(link)
     link.click()
     document.body.removeChild(link)
+    URL.revokeObjectURL(url)
   }
 
-  const getStatusColor = (status: string) => {
+  const getStatusColor = (status: NormalizedStatus) => {
     switch (status) {
       case 'working':
-        return 'bg-green-50'
+        return 'bg-blue-50'
       case 'holiday':
         return 'bg-gray-50'
       case 'absent':
-        return 'bg-red-50'
+        return 'bg-orange-50'
       case 'pending':
         return 'bg-yellow-50'
       default:
@@ -147,7 +155,7 @@ export const MonthlyReportPage: React.FC = () => {
     }
   }
 
-  const getStatusLabel = (status: string) => {
+  const getStatusLabel = (status: NormalizedStatus) => {
     switch (status) {
       case 'working':
         return '出勤'
@@ -162,7 +170,9 @@ export const MonthlyReportPage: React.FC = () => {
     }
   }
 
-  const getStatusBadgeVariant = (status: string): 'default' | 'working' | 'holiday' | 'pending' | 'approved' | 'rejected' => {
+  const getStatusBadgeVariant = (
+    status: NormalizedStatus
+  ): 'default' | 'working' | 'holiday' | 'pending' | 'approved' | 'rejected' => {
     switch (status) {
       case 'working':
         return 'working'
@@ -176,6 +186,9 @@ export const MonthlyReportPage: React.FC = () => {
         return 'default'
     }
   }
+
+  // "YYYY-MM-DD" → "MM/DD"（UTC 解釈による日付ズレを避けるため文字列で処理）
+  const formatDisplayDate = (date: string) => date.slice(5).replace('-', '/')
 
   return (
     <div className="space-y-4 sm:space-y-6">
@@ -204,7 +217,7 @@ export const MonthlyReportPage: React.FC = () => {
             variant="outline"
             className="w-full sm:w-auto"
           >
-詳細フィルター
+            詳細フィルター
           </Button>
         )}
 
@@ -212,6 +225,7 @@ export const MonthlyReportPage: React.FC = () => {
           <Card>
             <CardHeader>
               <CardTitle className="text-base">日付範囲フィルター</CardTitle>
+              <CardDescription>指定するとその範囲だけ集計・表示します</CardDescription>
             </CardHeader>
             <CardContent>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -239,7 +253,17 @@ export const MonthlyReportPage: React.FC = () => {
                 </div>
               </div>
               <div className="flex gap-2 mt-4">
-                <Button className="flex-1">適用</Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => {
+                    setStartDate('')
+                    setEndDate('')
+                  }}
+                  className="flex-1"
+                >
+                  クリア
+                </Button>
                 <Button
                   type="button"
                   variant="outline"
@@ -255,75 +279,73 @@ export const MonthlyReportPage: React.FC = () => {
       </div>
 
       {/* 統計情報 */}
-      {monthlyStats && (
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-xs">出勤日数</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-green-600">
-                {monthlyStats.totalWorkingDays} 日
-              </div>
-            </CardContent>
-          </Card>
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-xs">出勤日数</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-primary">
+              {monthlyStats.totalWorkingDays} 日
+            </div>
+          </CardContent>
+        </Card>
 
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-xs">合計勤務時間</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-blue-600">
-                {monthlyStats.totalWorkingHours}
-              </div>
-            </CardContent>
-          </Card>
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-xs">合計勤務時間</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-primary">
+              {monthlyStats.totalWorkingHours}
+            </div>
+          </CardContent>
+        </Card>
 
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-xs">合計残業時間</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-orange-600">
-                {monthlyStats.totalOvertime}
-              </div>
-            </CardContent>
-          </Card>
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-xs">合計残業時間</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-orange-600">
+              {monthlyStats.totalOvertime}
+            </div>
+          </CardContent>
+        </Card>
 
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-xs">平均勤務時間</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-purple-600">
-                {monthlyStats.averageWorkingHours}
-              </div>
-            </CardContent>
-          </Card>
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-xs">平均勤務時間</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-purple-600">
+              {monthlyStats.averageWorkingHours}
+            </div>
+          </CardContent>
+        </Card>
 
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-xs">欠勤日数</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-red-600">
-                {monthlyStats.absentDays} 日
-              </div>
-            </CardContent>
-          </Card>
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-xs">欠勤日数</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-orange-600">
+              {monthlyStats.absentDays} 日
+            </div>
+          </CardContent>
+        </Card>
 
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-xs">休日数</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-gray-600">
-                {monthlyStats.holidayDays} 日
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-      )}
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-xs">休日数</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-gray-600">
+              {monthlyStats.holidayDays} 日
+            </div>
+          </CardContent>
+        </Card>
+      </div>
 
       {/* 日別詳細 */}
       <Card>
@@ -339,7 +361,7 @@ export const MonthlyReportPage: React.FC = () => {
               </CardDescription>
             </div>
             <Button onClick={handleExport} className="w-full sm:w-auto" disabled={isLoading || dailyReports.length === 0}>
-CSVエクスポート
+              CSVエクスポート
             </Button>
           </div>
         </CardHeader>
@@ -370,10 +392,7 @@ CSVエクスポート
                   {dailyReports.map((report) => (
                     <TableRow key={report.date} className={getStatusColor(report.status)}>
                       <TableCell className="font-medium">
-                        {new Date(report.date).toLocaleDateString('ja-JP', {
-                          month: '2-digit',
-                          day: '2-digit',
-                        })}
+                        {formatDisplayDate(report.date)}
                         <span className="text-xs text-gray-600 ml-1">({report.dayOfWeek})</span>
                       </TableCell>
                       <TableCell>{report.checkIn}</TableCell>
@@ -396,45 +415,43 @@ CSVエクスポート
       </Card>
 
       {/* 月間サマリー */}
-      {monthlyStats && (
-        <Card>
-          <CardHeader>
-            <CardTitle>月間サマリー</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div className="space-y-3">
-                <div className="flex justify-between pb-3 border-b">
-                  <span className="text-gray-700">総勤務日数</span>
-                  <span className="font-bold">{monthlyStats.totalWorkingDays}日</span>
-                </div>
-                <div className="flex justify-between pb-3 border-b">
-                  <span className="text-gray-700">合計勤務時間</span>
-                  <span className="font-bold">{monthlyStats.totalWorkingHours}</span>
-                </div>
-                <div className="flex justify-between pb-3 border-b">
-                  <span className="text-gray-700">平均勤務時間</span>
-                  <span className="font-bold">{monthlyStats.averageWorkingHours}</span>
-                </div>
+      <Card>
+        <CardHeader>
+          <CardTitle>月間サマリー</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="space-y-3">
+              <div className="flex justify-between pb-3 border-b">
+                <span className="text-gray-700">総勤務日数</span>
+                <span className="font-bold">{monthlyStats.totalWorkingDays}日</span>
               </div>
-              <div className="space-y-3">
-                <div className="flex justify-between pb-3 border-b">
-                  <span className="text-gray-700">合計残業時間</span>
-                  <span className="font-bold text-orange-600">{monthlyStats.totalOvertime}</span>
-                </div>
-                <div className="flex justify-between pb-3 border-b">
-                  <span className="text-gray-700">欠勤日数</span>
-                  <span className="font-bold text-red-600">{monthlyStats.absentDays}日</span>
-                </div>
-                <div className="flex justify-between pb-3 border-b">
-                  <span className="text-gray-700">休日数</span>
-                  <span className="font-bold">{monthlyStats.holidayDays}日</span>
-                </div>
+              <div className="flex justify-between pb-3 border-b">
+                <span className="text-gray-700">合計勤務時間</span>
+                <span className="font-bold">{monthlyStats.totalWorkingHours}</span>
+              </div>
+              <div className="flex justify-between pb-3 border-b">
+                <span className="text-gray-700">平均勤務時間</span>
+                <span className="font-bold">{monthlyStats.averageWorkingHours}</span>
               </div>
             </div>
-          </CardContent>
-        </Card>
-      )}
+            <div className="space-y-3">
+              <div className="flex justify-between pb-3 border-b">
+                <span className="text-gray-700">合計残業時間</span>
+                <span className="font-bold text-orange-600">{monthlyStats.totalOvertime}</span>
+              </div>
+              <div className="flex justify-between pb-3 border-b">
+                <span className="text-gray-700">欠勤日数</span>
+                <span className="font-bold text-orange-600">{monthlyStats.absentDays}日</span>
+              </div>
+              <div className="flex justify-between pb-3 border-b">
+                <span className="text-gray-700">休日数</span>
+                <span className="font-bold">{monthlyStats.holidayDays}日</span>
+              </div>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
     </div>
   )
 }

@@ -7,10 +7,8 @@ import { AttendancePage } from '@/pages/AttendancePage'
 import { ApprovalPage } from '@/pages/ApprovalPage'
 import { CheckInOutPage } from '@/pages/CheckInOutPage'
 import { CorrectionRequestPage } from '@/pages/CorrectionRequestPage'
-import { LeaveManagementPage } from '@/pages/LeaveManagementPage'
 import { MonthlyReportPage } from '@/pages/MonthlyReportPage'
 import { AccountSettingsPage } from '@/pages/AccountSettingsPage'
-import { ProfilePage } from '@/pages/ProfilePage'
 import { LoginPage } from '@/pages/LoginPage'
 import { SignupPage } from '@/pages/SignupPage'
 import { NotFoundPage } from '@/pages/NotFoundPage'
@@ -63,16 +61,8 @@ export const router = createBrowserRouter(
           element: <ApprovalPage />,
         },
         {
-          path: 'leaves',
-          element: <LeaveManagementPage />,
-        },
-        {
           path: 'report',
           element: <MonthlyReportPage />,
-        },
-        {
-          path: 'profile',
-          element: <ProfilePage />,
         },
         {
           path: 'account-settings',

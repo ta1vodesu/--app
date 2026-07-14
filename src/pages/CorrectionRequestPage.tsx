@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { useAuth } from '@/context/AuthContext'
 import { supabase } from '@/lib/supabase'
+import { Attendance } from '@/types'
 
 interface CorrectionRequest {
   id: string
@@ -24,7 +25,8 @@ export const CorrectionRequestPage: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true)
   const [showNewRequestForm, setShowNewRequestForm] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
-  const [availableDates, setAvailableDates] = useState<any[]>([])
+  const [availableDates, setAvailableDates] = useState<Attendance[]>([])
+  const [formError, setFormError] = useState('')
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editingRequest, setEditingRequest] = useState<Partial<CorrectionRequest>>({})
   const [newRequest, setNewRequest] = useState({
@@ -61,11 +63,15 @@ export const CorrectionRequestPage: React.FC = () => {
         setMyRequests(requests || [])
 
         // 出勤記録を取得
-        const { data: attendances } = await supabase
+        const { data: attendances, error: attendancesError } = await supabase
           .from('attendances')
           .select('*')
           .eq('user_id', userProfile.id)
           .order('date', { ascending: false })
+
+        if (attendancesError) {
+          console.error('[CorrectionRequestPage] 出勤記録取得エラー:', attendancesError)
+        }
 
         setAvailableDates(attendances || [])
       } catch (err) {
@@ -91,8 +97,11 @@ export const CorrectionRequestPage: React.FC = () => {
           },
           (payload) => {
             if (payload.eventType === 'INSERT') {
-              // 新しい申請が追加された
-              setMyRequests((prev) => [payload.new as CorrectionRequest, ...prev])
+              // 新しい申請が追加された（手動リロードとの二重反映を防ぐため id で重複排除）
+              const inserted = payload.new as CorrectionRequest
+              setMyRequests((prev) =>
+                prev.some((req) => req.id === inserted.id) ? prev : [inserted, ...prev]
+              )
             } else if (payload.eventType === 'UPDATE') {
               // 既存の申請が更新された（承認・却下）
               setMyRequests((prev) =>
@@ -107,29 +116,46 @@ export const CorrectionRequestPage: React.FC = () => {
         .subscribe()
 
       return () => {
-        channel.unsubscribe()
+        supabase.removeChannel(channel)
       }
     }
   }, [userProfile?.id])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    setFormError('')
 
     if (!userProfile?.id || !newRequest.attendanceId) {
+      return
+    }
+
+    // バリデーション
+    const trimmedReason = newRequest.reason.trim()
+    if (!trimmedReason) {
+      setFormError('修正理由を入力してください')
+      return
+    }
+    if (!newRequest.correctedCheckIn && !newRequest.correctedCheckOut) {
+      setFormError('修正後の出勤・退勤時刻を少なくとも1つ入力してください')
       return
     }
 
     setIsSubmitting(true)
 
     try {
+      // 変更前の時刻を保存するため、対象の勤怠記録を参照する
+      const selected = availableDates.find((att) => att.id === newRequest.attendanceId)
+
       const { error: insertError } = await supabase
         .from('corrections')
         .insert({
           user_id: userProfile.id,
           attendance_id: newRequest.attendanceId,
+          original_check_in: selected?.check_in_time ?? null,
+          original_check_out: selected?.check_out_time ?? null,
           corrected_check_in: newRequest.correctedCheckIn || null,
           corrected_check_out: newRequest.correctedCheckOut || null,
-          reason: newRequest.reason,
+          reason: trimmedReason,
           status: 'pending',
         })
 
@@ -139,13 +165,17 @@ export const CorrectionRequestPage: React.FC = () => {
       }
 
       // リロード
-      const { data } = await supabase
+      const { data, error: reloadError } = await supabase
         .from('corrections')
         .select('*')
         .eq('user_id', userProfile.id)
         .order('created_at', { ascending: false })
 
-      setMyRequests(data || [])
+      if (reloadError) {
+        console.error('[CorrectionRequestPage] リロードエラー:', reloadError)
+      } else {
+        setMyRequests(data || [])
+      }
 
       setNewRequest({
         attendanceId: '',
@@ -156,6 +186,7 @@ export const CorrectionRequestPage: React.FC = () => {
       setShowNewRequestForm(false)
     } catch (err) {
       console.error('[CorrectionRequestPage] 送信エラー:', err)
+      setFormError('申請の送信に失敗しました')
     } finally {
       setIsSubmitting(false)
     }
@@ -188,13 +219,18 @@ export const CorrectionRequestPage: React.FC = () => {
       if (updateError) throw updateError
 
       // リロード
-      const { data } = await supabase
+      const { data, error: reloadError } = await supabase
         .from('corrections')
         .select('*')
         .eq('user_id', userProfile?.id)
         .order('created_at', { ascending: false })
 
-      setMyRequests(data || [])
+      if (reloadError) {
+        console.error('[CorrectionRequestPage] リロードエラー:', reloadError)
+      } else {
+        setMyRequests(data || [])
+      }
+
       setEditingId(null)
       setEditingRequest({})
     } catch (err) {
@@ -253,6 +289,11 @@ export const CorrectionRequestPage: React.FC = () => {
           </CardHeader>
           <CardContent>
             <form onSubmit={handleSubmit} className="space-y-4">
+              {formError && (
+                <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-md text-sm">
+                  {formError}
+                </div>
+              )}
               <div>
                 <label className="text-sm font-medium">対象日付を選択</label>
                 <select

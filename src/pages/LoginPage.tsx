@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react'
-import { useNavigate, useLocation, Location } from 'react-router-dom'
+import { useNavigate, useLocation } from 'react-router-dom'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { useAuth } from '@/context/AuthContext'
@@ -7,14 +7,13 @@ import { isSupabaseConfigured } from '@/lib/supabase'
 import { SetupRequiredPage } from './SetupRequiredPage'
 
 interface LocationState {
-  from?: Location
   message?: string
 }
 
 export const LoginPage: React.FC = () => {
   const navigate = useNavigate()
   const location = useLocation()
-  const { login, isAuthenticated } = useAuth()
+  const { login } = useAuth()
   const [formData, setFormData] = useState({
     email: '',
     password: '',
@@ -22,12 +21,6 @@ export const LoginPage: React.FC = () => {
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState('')
   const [successMessage, setSuccessMessage] = useState('')
-  const [redirectPending, setRedirectPending] = useState(false)
-
-  // Supabase が設定されていない場合はセットアップページを表示
-  if (!isSupabaseConfigured()) {
-    return <SetupRequiredPage />
-  }
 
   useEffect(() => {
     // SignupPage からのメッセージを取得
@@ -39,14 +32,11 @@ export const LoginPage: React.FC = () => {
     }
   }, [location.state])
 
-  // ログイン後のリダイレクト（レース条件対策）
-  useEffect(() => {
-    if (redirectPending && isAuthenticated) {
-      const state = location.state as LocationState | null
-      const from = state?.from?.pathname || '/'
-      navigate(from, { replace: true })
-    }
-  }, [redirectPending, isAuthenticated, navigate, location.state])
+  // Supabase が設定されていない場合はセットアップページを表示
+  // （フックの後に置くことで Hooks 規則を守る）
+  if (!isSupabaseConfigured()) {
+    return <SetupRequiredPage />
+  }
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target
@@ -72,7 +62,7 @@ export const LoginPage: React.FC = () => {
 
     try {
       await login(formData.email, formData.password)
-      setRedirectPending(true)
+      // 認証状態が変わると GuestRoute が元のページへリダイレクトする
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'ログインに失敗しました'
       console.error('Login error:', err)
@@ -100,13 +90,13 @@ export const LoginPage: React.FC = () => {
             <form onSubmit={handleSubmit} className="space-y-4">
               {successMessage && (
                 <div className="bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-md text-sm">
-{successMessage}
+                  {successMessage}
                 </div>
               )}
 
               {error && (
                 <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-md text-sm">
-{error}
+                  {error}
                 </div>
               )}
 
@@ -136,15 +126,6 @@ export const LoginPage: React.FC = () => {
                   placeholder="••••••••"
                   className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
                 />
-              </div>
-
-              <div className="text-right">
-                <button
-                  type="button"
-                  className="text-sm text-primary hover:underline"
-                >
-                  パスワードを忘れた方
-                </button>
               </div>
 
               <Button
@@ -178,12 +159,14 @@ export const LoginPage: React.FC = () => {
           </CardContent>
         </Card>
 
-        <div className="mt-6 p-4 bg-blue-50 border border-blue-200 rounded-lg text-sm text-gray-700">
-          <p className="font-medium mb-2">テスト用認証情報:</p>
-          <p>メール: test@example.com</p>
-          <p>パスワード: password123</p>
-          <p className="text-xs text-gray-500 mt-2">※ Supabase が設定されている場合のみ使用可能</p>
-        </div>
+        {import.meta.env.DEV && (
+          <div className="mt-6 p-4 bg-blue-50 border border-blue-200 rounded-lg text-sm text-gray-700">
+            <p className="font-medium mb-2">テスト用認証情報:</p>
+            <p>メール: test@example.com</p>
+            <p>パスワード: password123</p>
+            <p className="text-xs text-gray-500 mt-2">※ 開発環境でのみ表示されます</p>
+          </div>
+        )}
       </div>
     </div>
   )

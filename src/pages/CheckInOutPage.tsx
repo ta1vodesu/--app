@@ -112,12 +112,14 @@ export const CheckInOutPage: React.FC = () => {
         timeZone: 'Asia/Tokyo',
       })
 
-      const { data: existing } = await supabase
+      const { data: existing, error: existingError } = await supabase
         .from('attendances')
         .select('*')
         .eq('user_id', userProfile.id)
         .eq('date', dateStr)
         .maybeSingle()
+
+      if (existingError) throw existingError
 
       if (existing) {
         setError('本日は既に出勤しています')

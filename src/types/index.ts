@@ -1,89 +1,48 @@
+// ロールは admin / member の2種類（RLS ポリシーと一致させる）
 export enum UserRole {
-  EMPLOYEE = 'employee',
-  MANAGER = 'manager',
   ADMIN = 'admin',
+  MEMBER = 'member',
 }
 
-export enum AttendanceStatus {
-  WORKING = 'working',
-  HOLIDAY = 'holiday',
-  ABSENT = 'absent',
-  PENDING = 'pending',
-}
+// attendances.status に実際に保存される値
+export type AttendanceStatus =
+  | 'pending'
+  | 'approved'
+  | 'rejected'
+  | 'working'
+  | 'worked'
+  | 'completed'
+  | 'holiday'
+  | 'absent'
 
-export enum CorrectionStatus {
-  PENDING = 'pending',
-  APPROVED = 'approved',
-  REJECTED = 'rejected',
-}
-
-// Supabase Database Types
-
-export interface Profile {
-  id: string
-  email: string
-  name: string
-  role: UserRole
-  department_id?: string
-  is_active: boolean
-  avatar_url?: string
-  created_at: string
-  updated_at: string
-}
-
-export interface Department {
-  id: string
-  name: string
-  created_at: string
-  updated_at: string
-}
+export type CorrectionStatus = 'pending' | 'approved' | 'rejected'
 
 export interface Attendance {
   id: string
   user_id: string
   date: string
-  check_in_time?: string
-  check_out_time?: string
-  working_hours?: string
-  break_time?: string
-  overtime?: string
-  status: AttendanceStatus
-  notes?: string
-  created_at: string
-  updated_at: string
+  check_in_time?: string | null
+  check_out_time?: string | null
+  working_hours?: string | null
+  break_time?: string | null
+  overtime?: string | null
+  status: string | null
+  created_at?: string
+  updated_at?: string
 }
 
 export interface Correction {
   id: string
   user_id: string
   attendance_id: string
-  original_check_in?: string
-  corrected_check_in?: string
-  original_check_out?: string
-  corrected_check_out?: string
+  original_check_in?: string | null
+  corrected_check_in?: string | null
+  original_check_out?: string | null
+  corrected_check_out?: string | null
   reason: string
-  status: CorrectionStatus
-  approver_id?: string
-  approval_note?: string
-  approved_at?: string
+  status: CorrectionStatus | string
+  approver_id?: string | null
+  approved_at?: string | null
   created_at: string
-  updated_at: string
-}
-
-export interface KPI {
-  attendanceRate: number
-  averageWorkingHours: string
-  pendingApprovals: number
-  overtimeHours: number
-}
-
-export interface MemberStatus {
-  id: string
-  name: string
-  initials?: string
-  status: AttendanceStatus
-  checkInTime?: string
-  checkOutTime?: string
-  workingHours?: string
-  overtime?: string
+  updated_at?: string
 }

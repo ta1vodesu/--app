@@ -27,9 +27,12 @@ export const AccountSettingsPage: React.FC = () => {
         name: userProfile.name || '',
         email: userProfile.email || '',
       }))
+    }
+    // プロフィールが取得できなかった場合でも認証解決後はスピナーを解除する
+    if (!authLoading) {
       setIsLoadingData(false)
     }
-  }, [userProfile])
+  }, [userProfile, authLoading])
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target
@@ -43,8 +46,8 @@ export const AccountSettingsPage: React.FC = () => {
     setIsLoading(true)
 
     try {
-      if (!formData.name || !formData.email) {
-        setError('名前とメールアドレスは必須です')
+      if (!formData.name.trim()) {
+        setError('名前を入力してください')
         setIsLoading(false)
         return
       }
@@ -55,16 +58,17 @@ export const AccountSettingsPage: React.FC = () => {
         return
       }
 
+      // メールはログイン認証（Supabase Auth）と紐づくため、この画面では名前のみ更新する
       const { error: updateError } = await supabase
         .from('profiles')
         .update({
-          name: formData.name,
-          email: formData.email,
+          name: formData.name.trim(),
           updated_at: new Date().toISOString(),
         })
         .eq('id', userProfile.id)
 
       if (updateError) {
+        console.error('[AccountSettings] プロフィール更新エラー:', updateError)
         setError('プロフィール更新に失敗しました')
         return
       }
@@ -72,6 +76,7 @@ export const AccountSettingsPage: React.FC = () => {
       setSuccessMessage('プロフィールが更新されました')
       setTimeout(() => setSuccessMessage(''), 3000)
     } catch (err) {
+      console.error('[AccountSettings] プロフィール更新例外:', err)
       setError('更新に失敗しました。もう一度お試しください。')
     } finally {
       setIsLoading(false)
@@ -103,11 +108,30 @@ export const AccountSettingsPage: React.FC = () => {
         return
       }
 
+      if (!userProfile?.email) {
+        setError('ユーザー情報が見つかりません')
+        setIsLoading(false)
+        return
+      }
+
+      // 現在のパスワードを実際に検証する
+      const { error: verifyError } = await supabase.auth.signInWithPassword({
+        email: userProfile.email,
+        password: formData.currentPassword,
+      })
+
+      if (verifyError) {
+        setError('現在のパスワードが正しくありません')
+        setIsLoading(false)
+        return
+      }
+
       const { error: updateError } = await supabase.auth.updateUser({
         password: formData.newPassword,
       })
 
       if (updateError) {
+        console.error('[AccountSettings] パスワード変更エラー:', updateError)
         setError('パスワード変更に失敗しました。もう一度お試しください。')
         return
       }
@@ -122,6 +146,7 @@ export const AccountSettingsPage: React.FC = () => {
 
       setTimeout(() => setSuccessMessage(''), 3000)
     } catch (err) {
+      console.error('[AccountSettings] パスワード変更例外:', err)
       setError('パスワード変更に失敗しました。もう一度お試しください。')
     } finally {
       setIsLoading(false)
@@ -194,7 +219,7 @@ export const AccountSettingsPage: React.FC = () => {
               />
             </div>
 
-            {/* メールアドレス */}
+            {/* メールアドレス（ログインIDのためここでは変更不可） */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 メールアドレス
@@ -203,10 +228,12 @@ export const AccountSettingsPage: React.FC = () => {
                 type="email"
                 name="email"
                 value={formData.email}
-                onChange={handleChange}
-                placeholder="example@claude.jp"
-                className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
+                disabled
+                className="w-full px-4 py-2 border border-gray-200 rounded-md bg-gray-50 text-gray-500 cursor-not-allowed"
               />
+              <p className="text-xs text-gray-500 mt-1">
+                メールアドレスはログインIDのため変更できません
+              </p>
             </div>
 
             <Button type="submit" disabled={isLoading} className="w-full sm:w-auto">

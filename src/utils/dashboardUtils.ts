@@ -1,60 +1,56 @@
-export const parseWorkingHours = (workingHours: string | number): number | null => {
-  if (!workingHours) return null
+import { calculateWorkingMinutes, formatMinutesToHM } from './dateHelper'
 
-  if (typeof workingHours === 'number') {
-    return workingHours * 60
-  }
+export type NormalizedStatus = 'working' | 'holiday' | 'absent' | 'pending'
+
+export interface AttendanceRecordLike {
+  date: string
+  check_in_time?: string | null
+  check_out_time?: string | null
+  working_hours?: string | null
+  break_time?: string | null
+  status?: string | null
+}
+
+// DB には 'working' / 'worked' / 'completed' / 'approved' / 'pending' 等が混在するため、
+// 表示・集計は「打刻の実績」に基づいて正規化する
+export const normalizeAttendanceStatus = (record: AttendanceRecordLike): NormalizedStatus => {
+  if (record.status === 'holiday') return 'holiday'
+  if (record.status === 'absent') return 'absent'
+  if (record.check_in_time) return 'working'
+  return 'pending'
+}
+
+// "8h30m" / "8h" / "8:30" / "8.5" を分に変換
+const parseWorkingHoursToMinutes = (
+  workingHours: string | number | null | undefined
+): number | null => {
+  if (workingHours === null || workingHours === undefined || workingHours === '') return null
+  if (typeof workingHours === 'number') return Math.round(workingHours * 60)
 
   const str = workingHours.toString().trim()
 
-  // Format: "8h30m" or "8:30" or "8.5"
-  const hm = str.match(/^(\d+\.?\d*)h?(?::(\d+))?m?$/)
-  if (hm) {
-    const h = parseInt(hm[1], 10)
-    const m = hm[2] ? parseInt(hm[2], 10) : 0
-    return h * 60 + m
-  }
+  const hm = str.match(/^(\d+)h(?:(\d+)m?)?$/)
+  if (hm) return parseInt(hm[1], 10) * 60 + (hm[2] ? parseInt(hm[2], 10) : 0)
+
+  const colon = str.match(/^(\d+):(\d+)$/)
+  if (colon) return parseInt(colon[1], 10) * 60 + parseInt(colon[2], 10)
 
   const decimal = parseFloat(str)
-  if (!isNaN(decimal)) {
-    return decimal * 60
-  }
+  if (!isNaN(decimal)) return Math.round(decimal * 60)
 
   return null
 }
 
-export const calculateAverageWorkingHours = (attendanceData: any[]): string => {
-  if (!attendanceData || attendanceData.length === 0) {
-    return '-'
+// 打刻から勤務時間（分）を求める。打刻がない場合は working_hours 文字列にフォールバック
+const getRecordWorkingMinutes = (record: AttendanceRecordLike): number => {
+  if (record.check_in_time && record.check_out_time) {
+    const minutes = calculateWorkingMinutes(record.check_in_time, record.check_out_time)
+    if (minutes > 0) return minutes
   }
-
-  let totalMinutes = 0
-  let count = 0
-
-  for (const record of attendanceData) {
-    if (!record.working_hours) continue
-
-    const hours = parseWorkingHours(record.working_hours)
-    if (hours !== null) {
-      totalMinutes += hours
-      count++
-    }
-  }
-
-  if (count === 0) {
-    return '-'
-  }
-
-  const avgMinutes = Math.round(totalMinutes / count)
-  const hours = Math.floor(avgMinutes / 60)
-  const minutes = avgMinutes % 60
-
-  return `${hours}h${minutes}m`
+  return parseWorkingHoursToMinutes(record.working_hours) ?? 0
 }
 
-export const formatOvertime = (totalMinutes: number): number => {
-  return Math.round((totalMinutes / 60) * 10) / 10
-}
+const STANDARD_WORKING_MINUTES = 480 // 所定労働 8 時間
 
 export interface MonthlyStats {
   totalWorkingDays: number
@@ -73,10 +69,10 @@ export interface DailyReportData {
   workingHours: string
   breakTime: string
   overtime: string
-  status: 'working' | 'holiday' | 'absent' | 'pending'
+  status: NormalizedStatus
 }
 
-export const calculateMonthlyStats = (attendanceData: any[]): MonthlyStats => {
+export const calculateMonthlyStats = (attendanceData: AttendanceRecordLike[]): MonthlyStats => {
   let totalWorkingMinutes = 0
   let totalOvertimeMinutes = 0
   let workingDays = 0
@@ -84,98 +80,51 @@ export const calculateMonthlyStats = (attendanceData: any[]): MonthlyStats => {
   let holidayDays = 0
 
   for (const record of attendanceData) {
-    // 'working' または 'worked' は勤務日
-    if (record.status === 'working' || record.status === 'worked') {
+    const status = normalizeAttendanceStatus(record)
+    if (status === 'working') {
       workingDays++
-
-      // 勤務時間を計算（check_in_time と check_out_time から）
-      if (record.check_in_time && record.check_out_time) {
-        const hours = calculateWorkingHours(record.check_in_time, record.check_out_time)
-        if (hours > 0) {
-          totalWorkingMinutes += Math.round(hours * 60)
-        }
-      } else if (record.working_hours) {
-        // フォールバック：working_hours が設定されている場合
-        const hours = parseWorkingHours(record.working_hours)
-        if (hours !== null) {
-          totalWorkingMinutes += hours
-        }
-      }
-
-      if (record.overtime) {
-        const overtime = parseWorkingHours(record.overtime)
-        if (overtime !== null) {
-          totalOvertimeMinutes += overtime
-        }
-      }
-    } else if (record.status === 'absent') {
+      const minutes = getRecordWorkingMinutes(record)
+      totalWorkingMinutes += minutes
+      totalOvertimeMinutes += Math.max(0, minutes - STANDARD_WORKING_MINUTES)
+    } else if (status === 'absent') {
       absentDays++
-    } else if (record.status === 'holiday') {
+    } else if (status === 'holiday') {
       holidayDays++
     }
   }
 
-  const totalWorkingHours = formatMinutesToTime(totalWorkingMinutes)
-  const totalOvertime = formatMinutesToTime(totalOvertimeMinutes)
-  const averageWorkingHours = workingDays > 0
-    ? formatMinutesToTime(Math.round(totalWorkingMinutes / workingDays))
-    : '-'
-
   return {
     totalWorkingDays: workingDays,
-    totalWorkingHours,
-    totalOvertime,
-    averageWorkingHours,
+    totalWorkingHours: formatMinutesToHM(totalWorkingMinutes),
+    totalOvertime: formatMinutesToHM(totalOvertimeMinutes),
+    averageWorkingHours:
+      workingDays > 0 ? formatMinutesToHM(Math.round(totalWorkingMinutes / workingDays)) : '-',
     absentDays,
     holidayDays,
   }
 }
 
-export const convertAttendanceToDailyReport = (attendanceData: any[]): DailyReportData[] => {
+export const convertAttendanceToDailyReport = (
+  attendanceData: AttendanceRecordLike[]
+): DailyReportData[] => {
   return attendanceData.map((record) => {
-    const date = new Date(record.date)
-    const dayOfWeek = ['日', '月', '火', '水', '木', '金', '土'][date.getDay()]
+    // "YYYY-MM-DD" を UTC 解釈させないため、要素に分解してローカルで曜日を求める
+    const [year, month, day] = record.date.split('-').map(Number)
+    const dayOfWeek = ['日', '月', '火', '水', '木', '金', '土'][
+      new Date(year, month - 1, day).getDay()
+    ]
+    const minutes = getRecordWorkingMinutes(record)
+    const overtimeMinutes = Math.max(0, minutes - STANDARD_WORKING_MINUTES)
 
     return {
       date: record.date,
       dayOfWeek,
       checkIn: record.check_in_time || '-',
       checkOut: record.check_out_time || '-',
-      workingHours: record.working_hours || '-',
+      workingHours: formatMinutesToHM(minutes),
       breakTime: record.break_time || '-',
-      overtime: record.overtime || '-',
-      status: record.status || 'pending',
+      overtime: overtimeMinutes > 0 ? formatMinutesToHM(overtimeMinutes) : '-',
+      status: normalizeAttendanceStatus(record),
     }
   })
-}
-
-const formatMinutesToTime = (minutes: number): string => {
-  if (minutes === 0) return '-'
-  const hours = Math.floor(minutes / 60)
-  const mins = minutes % 60
-
-  // 時間と分の両方がある場合
-  if (hours > 0 && mins > 0) {
-    return `${hours}h${mins}m`
-  }
-  // 時間のみ
-  if (hours > 0) {
-    return `${hours}h`
-  }
-  // 分のみ
-  return `${mins}m`
-}
-
-const calculateWorkingHours = (checkInTime: string, checkOutTime: string): number => {
-  if (!checkInTime || !checkOutTime) return 0
-  try {
-    const [inHour, inMin] = checkInTime.split(':').map(Number)
-    const [outHour, outMin] = checkOutTime.split(':').map(Number)
-    const inMinutes = inHour * 60 + inMin
-    const outMinutes = outHour * 60 + outMin
-    const diff = outMinutes - inMinutes
-    return diff > 0 ? diff / 60 : 0
-  } catch {
-    return 0
-  }
 }

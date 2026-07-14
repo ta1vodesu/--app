@@ -2,6 +2,8 @@ import React from 'react'
 import { NavLink, useLocation } from 'react-router-dom'
 import { cn } from '@/lib/utils'
 import { sidebarNavigationItems } from '@/data/mockData'
+import { useAuth } from '@/context/AuthContext'
+import { UserRole } from '@/types'
 
 interface SidebarProps {
   onClose?: () => void
@@ -9,12 +11,16 @@ interface SidebarProps {
 
 export const Sidebar: React.FC<SidebarProps> = ({ onClose }) => {
   const location = useLocation()
+  const { userProfile } = useAuth()
+
+  const isAdmin = userProfile?.role === UserRole.ADMIN
+  const visibleItems = sidebarNavigationItems.filter((item) => !item.adminOnly || isAdmin)
 
   return (
     <aside className="w-64 h-full bg-white border-r border-gray-200 overflow-y-auto flex flex-col shadow-sm">
       {/* メニュー部分 */}
       <nav className="flex-1 px-3 py-4 space-y-1">
-        {sidebarNavigationItems.map((item) => {
+        {visibleItems.map((item) => {
           const isActive = location.pathname === item.path
           return (
             <NavLink
@@ -29,7 +35,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ onClose }) => {
               )}
               title={item.label}
             >
-              <span className="text-base leading-none flex-shrink-0 opacity-80">{item.icon || '•'}</span>
+              <item.icon className="h-4 w-4 flex-shrink-0 opacity-80" />
               <span className="truncate min-w-0 font-medium">{item.label}</span>
             </NavLink>
           )

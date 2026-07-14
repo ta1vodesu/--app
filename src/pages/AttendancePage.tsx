@@ -5,8 +5,16 @@ import { Badge } from '@/components/ui/badge'
 import { useAuth } from '@/context/AuthContext'
 import { supabase } from '@/lib/supabase'
 import { Attendance } from '@/types'
+import { getMonthRange, formatYMD } from '@/utils/dateHelper'
 
 type FilterType = 'all' | 'working' | 'absent' | 'holiday'
+
+// DB の status（working / worked / completed / approved 等）を表示用の3分類に正規化
+const normalizeStatus = (att: Attendance): 'working' | 'absent' | 'holiday' => {
+  if (att.status === 'absent') return 'absent'
+  if (att.status === 'holiday') return 'holiday'
+  return 'working'
+}
 
 export const AttendancePage: React.FC = () => {
   const { userProfile } = useAuth()
@@ -27,12 +35,11 @@ export const AttendancePage: React.FC = () => {
           return
         }
 
-        const startOfMonth = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), 1)
-          .toISOString()
-          .split('T')[0]
-        const endOfMonth = new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 0)
-          .toISOString()
-          .split('T')[0]
+        // toISOString() は UTC 変換で日本時間だと1日ズレるため使用しない
+        const { start: startOfMonth, end: endOfMonth } = getMonthRange(
+          currentMonth.getFullYear(),
+          currentMonth.getMonth()
+        )
 
         const { data, error: fetchError } = await supabase
           .from('attendances')
@@ -59,17 +66,10 @@ export const AttendancePage: React.FC = () => {
   }, [userProfile?.id, currentMonth])
 
   // フィルタ適用
-  const getFilteredAttendances = () => {
-    if (filterType === 'all') {
-      return attendances
-    }
-    return attendances.filter(a => {
-      const normalizedStatus = a.status || 'working'
-      return normalizedStatus === filterType
-    })
-  }
-
-  const filteredAttendances = getFilteredAttendances()
+  const filteredAttendances =
+    filterType === 'all'
+      ? attendances
+      : attendances.filter((a) => normalizeStatus(a) === filterType)
 
   const getDaysInMonth = (date: Date) => {
     return new Date(date.getFullYear(), date.getMonth() + 1, 0).getDate()
@@ -80,24 +80,16 @@ export const AttendancePage: React.FC = () => {
   }
 
   const getAttendanceForDate = (day: number) => {
-    const dateStr = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), day)
-      .toISOString()
-      .split('T')[0]
+    const dateStr = formatYMD(currentMonth.getFullYear(), currentMonth.getMonth() + 1, day)
     const att = attendances.find((a) => a.date === dateStr)
+    if (!att) return null
     // フィルタに合わせて表示/非表示を切り替え
-    if (filterType === 'all') return att
-    if (att) {
-      const normalizedStatus = att.status || 'working'
-      if (normalizedStatus === filterType) return att
-    }
+    if (filterType === 'all' || normalizeStatus(att) === filterType) return att
     return null
   }
 
-  const getStatusColor = (status: string | null) => {
-    const normalizedStatus = status || 'working'
-    switch (normalizedStatus) {
-      case 'working':
-        return 'bg-blue-100 text-blue-800'
+  const getStatusColor = (att: Attendance) => {
+    switch (normalizeStatus(att)) {
       case 'holiday':
         return 'bg-gray-100 text-gray-800'
       case 'absent':
@@ -107,11 +99,8 @@ export const AttendancePage: React.FC = () => {
     }
   }
 
-  const getStatusLabel = (status: string | null) => {
-    const normalizedStatus = status || 'working'
-    switch (normalizedStatus) {
-      case 'working':
-        return '出勤'
+  const getStatusLabel = (att: Attendance) => {
+    switch (normalizeStatus(att)) {
       case 'holiday':
         return '休日'
       case 'absent':
@@ -176,7 +165,7 @@ export const AttendancePage: React.FC = () => {
               onClick={() => setFilterType('working')}
               className={filterType === 'working' ? 'bg-blue-600' : ''}
             >
-              出勤 ({attendances.filter(a => (a.status || 'working') === 'working').length}件)
+              出勤 ({attendances.filter((a) => normalizeStatus(a) === 'working').length}件)
             </Button>
             <Button
               variant={filterType === 'absent' ? 'default' : 'outline'}
@@ -184,7 +173,7 @@ export const AttendancePage: React.FC = () => {
               onClick={() => setFilterType('absent')}
               className={filterType === 'absent' ? 'bg-orange-600' : ''}
             >
-              欠勤 ({attendances.filter(a => a.status === 'absent').length}件)
+              欠勤 ({attendances.filter((a) => normalizeStatus(a) === 'absent').length}件)
             </Button>
             <Button
               variant={filterType === 'holiday' ? 'default' : 'outline'}
@@ -192,7 +181,7 @@ export const AttendancePage: React.FC = () => {
               onClick={() => setFilterType('holiday')}
               className={filterType === 'holiday' ? 'bg-gray-600' : ''}
             >
-              休日 ({attendances.filter(a => a.status === 'holiday').length}件)
+              休日 ({attendances.filter((a) => normalizeStatus(a) === 'holiday').length}件)
             </Button>
           </div>
         </CardContent>
@@ -242,7 +231,7 @@ export const AttendancePage: React.FC = () => {
                   key={day}
                   className={`aspect-square p-1 sm:p-2 rounded border-2 text-center cursor-pointer transition w-12 sm:w-auto ${
                     att
-                      ? `${getStatusColor(att.status)} border-current`
+                      ? `${getStatusColor(att)} border-current`
                       : 'bg-gray-50 text-gray-400 border-gray-200'
                   } ${
                     isFiltered
@@ -290,8 +279,8 @@ export const AttendancePage: React.FC = () => {
                         出勤: {att.check_in_time || '—'} / 退勤: {att.check_out_time || '—'}
                       </p>
                     </div>
-                    <Badge className={getStatusColor(att.status)}>
-                      {getStatusLabel(att.status)}
+                    <Badge className={getStatusColor(att)}>
+                      {getStatusLabel(att)}
                     </Badge>
                   </div>
                 </div>
@@ -311,8 +300,8 @@ export const AttendancePage: React.FC = () => {
             <div className="space-y-2">
               <div>
                 <p className="text-sm text-gray-600">ステータス</p>
-                <Badge className={getStatusColor(selectedDate.status)}>
-                  {getStatusLabel(selectedDate.status)}
+                <Badge className={getStatusColor(selectedDate)}>
+                  {getStatusLabel(selectedDate)}
                 </Badge>
               </div>
               <div>

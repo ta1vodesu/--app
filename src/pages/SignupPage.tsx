@@ -58,11 +58,19 @@ export const SignupPage: React.FC = () => {
       }
 
       await signup(formData.email, formData.password, formData.name)
-      
-      // signup 後は自動的にログインされるので、ダッシュボードへリダイレクト
-      navigate('/', { replace: true })
+      // 自動ログイン成功後は GuestRoute がダッシュボードへリダイレクトする
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : '登録に失敗しました'
+
+      // アカウント作成は成功したが自動ログインに失敗した場合はログイン画面へ誘導
+      if (errorMessage === 'SIGNUP_AUTOLOGIN_FAILED') {
+        navigate('/login', {
+          replace: true,
+          state: { message: 'アカウントを作成しました。ログインしてください。' },
+        })
+        return
+      }
+
       console.error('Signup error:', err)
 
       let displayError = errorMessage
