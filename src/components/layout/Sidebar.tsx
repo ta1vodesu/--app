@@ -35,7 +35,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ onClose }) => {
               )}
               title={item.label}
             >
-              <item.icon className="h-4 w-4 flex-shrink-0 opacity-80" />
+              <span className="text-base leading-none flex-shrink-0 opacity-80">・</span>
               <span className="truncate min-w-0 font-medium">{item.label}</span>
             </NavLink>
           )
