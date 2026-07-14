@@ -24,7 +24,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ onClose }) => {
               className={cn(
                 'flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 min-w-0',
                 isActive
-                  ? 'bg-primary/10 text-primary border border-primary/20'
+                  ? 'bg-blue-100 text-primary border border-primary/40'
                   : 'text-gray-700 hover:bg-gray-50 border border-transparent'
               )}
               title={item.label}
