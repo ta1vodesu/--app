@@ -40,6 +40,16 @@ export const DashboardPage: React.FC = () => {
     }
   }
 
+  // 秒を削除（HH:MM形式に）
+  const formatTimeWithoutSeconds = (time: string | null): string | null => {
+    if (!time) return null
+    const parts = time.split(':')
+    if (parts.length >= 2) {
+      return `${parts[0]}:${parts[1]}`
+    }
+    return time
+  }
+
   useEffect(() => {
     const fetchDashboardData = async () => {
       try {
@@ -235,13 +245,13 @@ export const DashboardPage: React.FC = () => {
                   </div>
                   <div className="flex gap-2">
                     {attendance.checkInTime && (
-                      <Badge variant="outline" className="bg-green-50">
-                        出勤: {attendance.checkInTime}
+                      <Badge variant="outline" className="bg-blue-50">
+                        出勤: {formatTimeWithoutSeconds(attendance.checkInTime)}
                       </Badge>
                     )}
                     {attendance.checkOutTime && (
-                      <Badge variant="outline" className="bg-blue-50">
-                        退勤: {attendance.checkOutTime}
+                      <Badge variant="outline" className="bg-orange-50">
+                        退勤: {formatTimeWithoutSeconds(attendance.checkOutTime)}
                       </Badge>
                     )}
                     {!attendance.checkInTime && (
