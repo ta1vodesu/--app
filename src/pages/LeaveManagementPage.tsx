@@ -131,9 +131,9 @@ export const LeaveManagementPage: React.FC = () => {
           </CardHeader>
           <CardContent>
             <div className="text-3xl font-bold text-blue-600">
-              {paidLeaveBalance}
+              {paidLeaveBalance} 日
             </div>
-            <p className="text-xs text-gray-600 mt-1">日 / 15日</p>
+            <p className="text-xs text-gray-600 mt-1">/ 15日</p>
           </CardContent>
         </Card>
 
@@ -143,9 +143,9 @@ export const LeaveManagementPage: React.FC = () => {
           </CardHeader>
           <CardContent>
             <div className="text-3xl font-bold text-red-600">
-              {sickLeaveBalance}
+              {sickLeaveBalance} 日
             </div>
-            <p className="text-xs text-gray-600 mt-1">日 / 5日</p>
+            <p className="text-xs text-gray-600 mt-1">/ 5日</p>
           </CardContent>
         </Card>
 
@@ -157,9 +157,8 @@ export const LeaveManagementPage: React.FC = () => {
             <div className="text-3xl font-bold text-gray-900">
               {leaves.filter((l) =>
                 new Date(l.date).getMonth() === new Date().getMonth()
-              ).length}
+              ).length} 日
             </div>
-            <p className="text-xs text-gray-600 mt-1">日</p>
           </CardContent>
         </Card>
 
@@ -169,9 +168,8 @@ export const LeaveManagementPage: React.FC = () => {
           </CardHeader>
           <CardContent>
             <div className="text-3xl font-bold text-orange-600">
-              {leaves.filter((l) => l.status === 'pending').length}
+              {leaves.filter((l) => l.status === 'pending').length} 件
             </div>
-            <p className="text-xs text-gray-600 mt-1">件</p>
           </CardContent>
         </Card>
       </div>
