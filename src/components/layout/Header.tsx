@@ -35,7 +35,6 @@ export const Header: React.FC = () => {
     <header className="bg-primary text-primary-foreground border-b border-border sticky top-0 z-40">
       <div className="h-14 sm:h-16 px-3 sm:px-6 flex items-center justify-between gap-2 sm:gap-4">
         <div className="flex items-center gap-2 sm:gap-3 min-w-0">
-          <div className="text-xl sm:text-2xl leading-none flex-shrink-0">⏱️</div>
           <h1 className="text-base sm:text-lg font-bold truncate">勤怠管理</h1>
           <span className="hidden sm:inline text-xs opacity-75 whitespace-nowrap flex-shrink-0">
             CLAUDE研修 Inc.
