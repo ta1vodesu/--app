@@ -22,7 +22,7 @@ export const KPICard: React.FC<KPICardProps> = ({ label, value, trend }) => {
           <p className="text-3xl font-bold">{value}</p>
           {trend && (
             <p className={`text-xs mt-2 ${trendColor[trend]}`}>
-              {trend === 'up' ? '↑ 上昇' : trend === 'down' ? '↓ 下降' : '⚠️ 注意'}
+              {trend === 'up' ? '↑ 上昇' : trend === 'down' ? '↓ 下降' : '注意'}
             </p>
           )}
         </div>

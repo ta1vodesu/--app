@@ -273,7 +273,7 @@ export const LeaveManagementPage: React.FC = () => {
           <Card className="bg-blue-50 border-blue-200">
             <CardContent className="pt-6">
               <p className="text-sm text-blue-900 font-medium mb-2">
-                📋 休暇種別について
+休暇種別について
               </p>
               <ul className="space-y-1 text-xs text-blue-800">
                 <li>

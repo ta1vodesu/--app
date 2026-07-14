@@ -7,7 +7,7 @@ export const SetupRequiredPage: React.FC = () => {
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-yellow-50 to-orange-100 p-4">
       <div className="w-full max-w-2xl">
         <div className="text-center mb-8">
-          <div className="text-6xl mb-3">⚙️</div>
+          <div className="text-6xl mb-3"></div>
           <h1 className="text-3xl font-bold text-gray-900">セットアップが必要です</h1>
           <p className="text-gray-600 mt-2">Supabase の認証情報を設定してください</p>
         </div>

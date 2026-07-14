@@ -90,7 +90,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           setUserProfile(null)
         }
       } catch (error) {
-        console.error('[AuthContext] ❌ 認証チェックエラー:', error)
+        console.error('[AuthContext]認証チェックエラー:', error)
       } finally {
         setIsLoading(false)
       }
@@ -129,7 +129,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         await fetchUserProfile(data.user.id, true)
       }
     } catch (error) {
-      console.error('[AuthContext] ❌ ログインエラー:', error)
+      console.error('[AuthContext]ログインエラー:', error)
       throw error
     }
   }
@@ -144,7 +144,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       profileFetchingRef.current.clear()
       lastProfileFetchRef.current.clear()
     } catch (error) {
-      console.error('[AuthContext] ❌ ログアウトエラー:', error)
+      console.error('[AuthContext]ログアウトエラー:', error)
       setUser(null)
       setUserProfile(null)
       throw error
@@ -176,7 +176,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       })
 
       if (profileError) {
-        console.error('[AuthContext] ❌ プロフィール作成エラー:', profileError)
+        console.error('[AuthContext]プロフィール作成エラー:', profileError)
         throw new Error(`プロフィール作成エラー: ${profileError.message}`)
       }
 
@@ -186,7 +186,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       })
 
       if (signInError) {
-        console.error('[AuthContext] ⚠️ 自動ログインエラー:', signInError)
+        console.error('[AuthContext]自動ログインエラー:', signInError)
         return
       }
 
@@ -195,7 +195,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         await fetchUserProfile(signInData.user.id, true)
       }
     } catch (error) {
-      console.error('[AuthContext] ❌ サインアップエラー:', error)
+      console.error('[AuthContext]サインアップエラー:', error)
       throw error
     }
   }

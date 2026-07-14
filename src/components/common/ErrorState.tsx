@@ -12,7 +12,7 @@ interface ErrorStateProps {
 export const ErrorState: React.FC<ErrorStateProps> = ({
   title = 'エラーが発生しました',
   message,
-  icon = '❌',
+  icon = '',
   onRetry,
   showRetryButton = !!onRetry,
 }) => {

@@ -9,7 +9,7 @@ export const isSupabaseConfigured = () => {
 
 if (!supabaseUrl || !supabaseAnonKey) {
   console.error(
-    '❌ Supabase configuration is missing.\n' +
+    'Supabase configuration is missing.\n' +
     'Please set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY in your .env.local file.\n' +
     'See the README or .env.example for setup instructions.'
   )
