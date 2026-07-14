@@ -14,7 +14,7 @@ export const AppLayout: React.FC = () => {
         {/* サイドバー: md以上で表示、またはモバイルで開いている場合 */}
         <div className={`${
           isSidebarOpen ? 'block' : 'hidden'
-        } md:block w-64 border-r border-gray-200 bg-white overflow-y-auto transition-all duration-300 ease-in-out`}>
+        } md:block w-64 transition-all duration-300 ease-in-out`}>
           <Sidebar onClose={() => setIsSidebarOpen(false)} />
         </div>
 

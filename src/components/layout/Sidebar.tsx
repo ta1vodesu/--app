@@ -11,7 +11,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ onClose }) => {
   const location = useLocation()
 
   return (
-    <aside className="w-64 bg-white border-r border-gray-200 h-[calc(100vh-4rem)] overflow-y-auto sticky top-16 flex flex-col shadow-sm">
+    <aside className="w-64 bg-white border-r border-gray-200 h-[calc(100vh-3.5rem)] sm:h-[calc(100vh-4rem)] overflow-y-auto sticky top-14 sm:top-16 flex flex-col shadow-sm">
       {/* メニュー部分 */}
       <nav className="flex-1 px-3 py-4 space-y-1">
         {sidebarNavigationItems.map((item) => {
@@ -24,7 +24,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ onClose }) => {
               className={cn(
                 'flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 min-w-0',
                 isActive
-                  ? 'bg-blue-50 text-blue-700 border border-blue-200'
+                  ? 'bg-primary/10 text-primary border border-primary/20'
                   : 'text-gray-700 hover:bg-gray-50 border border-transparent'
               )}
               title={item.label}

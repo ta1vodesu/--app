@@ -201,7 +201,7 @@ export const DashboardPage: React.FC = () => {
               <CardTitle className="text-sm">出勤率</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-3xl font-bold text-green-600">{kpi.attendanceRate}%</div>
+              <div className="text-3xl font-bold text-primary">{kpi.attendanceRate}%</div>
               <p className="text-xs text-gray-500 mt-2">今月</p>
             </CardContent>
           </Card>
@@ -211,7 +211,7 @@ export const DashboardPage: React.FC = () => {
               <CardTitle className="text-sm">平均勤務時間</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-3xl font-bold text-blue-600">{kpi.averageWorkingHours}</div>
+              <div className="text-3xl font-bold text-primary">{kpi.averageWorkingHours}</div>
               <p className="text-xs text-gray-500 mt-2">目標: 8h</p>
             </CardContent>
           </Card>
@@ -231,7 +231,7 @@ export const DashboardPage: React.FC = () => {
               <CardTitle className="text-sm">今月残業</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-3xl font-bold text-red-600">{kpi.overtimeHours} h</div>
+              <div className="text-3xl font-bold text-purple-600">{kpi.overtimeHours} h</div>
               <p className="text-xs text-gray-500 mt-2">上限: 45h</p>
             </CardContent>
           </Card>
